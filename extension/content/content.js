@@ -82,7 +82,6 @@
    * Provides methods for the web page to communicate with the extension
    */
   const chromeBridge = {
-  const chromeBridge = {
     /**
      * Send a command to the native host
      * @param {string} command - The command name
