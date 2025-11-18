@@ -76,7 +76,6 @@ export default function Dashboard() {
           <div className="status-cards">
             <div className={`status-card ${extensionConnected ? 'connected' : 'disconnected'}`}>
               <div className="status-header">
-                <span className="status-icon">{extensionConnected ? '✅' : '❌'}</span>
                 <span className="status-label">Chrome Extension</span>
               </div>
               <div className="status-value">
@@ -91,7 +90,6 @@ export default function Dashboard() {
 
             <div className={`status-card ${nativeHostConnected ? 'connected' : 'disconnected'}`}>
               <div className="status-header">
-                <span className="status-icon">{nativeHostConnected ? '✅' : '❌'}</span>
                 <span className="status-label">Native Host</span>
               </div>
               <div className="status-value">
@@ -105,7 +103,7 @@ export default function Dashboard() {
             </div>
           </div>
           <button onClick={checkConnections} className="btn-secondary" style={{ marginTop: '16px' }}>
-            🔄 Recheck Connections
+            Recheck Connections
           </button>
         </div>
 
@@ -117,22 +115,18 @@ export default function Dashboard() {
           <h2>Quick Actions</h2>
           <div className="quick-actions-grid">
             <a href="/fido2" className="quick-action-card">
-              <span className="action-icon">🛡️</span>
               <h3>FIDO2</h3>
               <p>Manage authentication credentials</p>
             </a>
             <a href="/piv" className="quick-action-card">
-              <span className="action-icon">🎫</span>
               <h3>PIV</h3>
               <p>Manage smart card certificates</p>
             </a>
             <a href="/otp" className="quick-action-card">
-              <span className="action-icon">🔢</span>
               <h3>OTP</h3>
               <p>Configure one-time passwords</p>
             </a>
             <a href="/protocols" className="quick-action-card">
-              <span className="action-icon">⚙️</span>
               <h3>Protocols</h3>
               <p>View supported protocols</p>
             </a>

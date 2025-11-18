@@ -71,12 +71,12 @@ export default function DebugConsole() {
 
       if (result.status === 'ok') {
         const resultData = result.result as { bytesSent: number }
-        setResponse(`✅ HID packet sent successfully\nBytes sent: ${resultData.bytesSent}`)
+        setResponse(`SUCCESS: HID packet sent successfully\nBytes sent: ${resultData.bytesSent}`)
       } else {
-        setResponse(`❌ Error: ${result.error?.message || 'Unknown error'}`)
+        setResponse(`ERROR: Error: ${result.error?.message || 'Unknown error'}`)
       }
     } catch (err) {
-      setResponse(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setResponse(`ERROR: Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -102,12 +102,12 @@ export default function DebugConsole() {
       if (result.status === 'ok') {
         const resultData = result.result as { data: number[] }
         const formatted = formatHexResponse(resultData.data)
-        setResponse(`✅ HID packet received\nBytes: ${resultData.data.length}\n\n${formatted}`)
+        setResponse(`SUCCESS: HID packet received\nBytes: ${resultData.data.length}\n\n${formatted}`)
       } else {
-        setResponse(`❌ Error: ${result.error?.message || 'Unknown error'}`)
+        setResponse(`ERROR: Error: ${result.error?.message || 'Unknown error'}`)
       }
     } catch (err) {
-      setResponse(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setResponse(`ERROR: Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -156,10 +156,10 @@ export default function DebugConsole() {
           `Status Word: ${statusWord} ${success ? '(Success)' : '(Error)'}\n\n${formatted}`
         )
       } else {
-        setResponse(`❌ Error: ${result.error?.message || 'Unknown error'}`)
+        setResponse(`ERROR: Error: ${result.error?.message || 'Unknown error'}`)
       }
     } catch (err) {
-      setResponse(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setResponse(`ERROR: Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }

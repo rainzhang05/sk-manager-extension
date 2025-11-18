@@ -7,7 +7,7 @@ export default function Protocols() {
       name: 'FIDO2',
       subtitle: 'CTAP2',
       description: 'Modern authentication protocol with biometric support',
-      icon: '🛡️',
+      icon: '',
       supported: false,
     },
     {
@@ -23,7 +23,7 @@ export default function Protocols() {
       name: 'PIV',
       subtitle: 'Smart Card',
       description: 'Personal identity verification for secure access',
-      icon: '🎫',
+      icon: '',
       supported: false,
     },
     {
@@ -39,7 +39,7 @@ export default function Protocols() {
       name: 'OTP',
       subtitle: 'HOTP',
       description: 'One-time password generation',
-      icon: '🔢',
+      icon: '',
       supported: false,
     },
     {
