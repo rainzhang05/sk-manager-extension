@@ -214,7 +214,7 @@
   max-width: 200px;
 }
 
-/* Connected Device Styling */
+/* Connected and Detected Device Styling */
 .device-card.connected {
   border-color: var(--color-success);
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
@@ -224,12 +224,30 @@
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2), var(--shadow-md);
 }
 
+.device-card.detected {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.1);
+}
+
+.device-card.detected:hover {
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2), var(--shadow-md);
+}
+
 .connected-badge {
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 600;
   background: var(--color-success);
+  color: white;
+}
+
+.connecting-badge {
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  background: #fbbf24;
   color: white;
 }
 
