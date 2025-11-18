@@ -23,7 +23,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [openDeviceId, setOpenDeviceId] = useState<string | null>(null)
-  const [connectionAttempted, setConnectionAttempted] = useState<Set<string>>(new Set())
 
   // Auto-connect to device when detected
   const connectDevice = useCallback(async (deviceToConnect: Device) => {
@@ -32,8 +31,8 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       return
     }
 
-    // If device is already connected, don't try again
-    if (openDeviceId === deviceToConnect.id) {
+    // If this is the device we're already connected to, don't try again
+    if (openDeviceId === deviceToConnect.id && isConnected) {
       return
     }
 
@@ -48,7 +47,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         console.log('[DeviceList] Device connected successfully')
         setIsConnected(true)
         setOpenDeviceId(deviceToConnect.id)
-        setConnectionAttempted(prev => new Set(prev).add(deviceToConnect.id))
         
         // Dispatch custom event to notify other components
         const event = new CustomEvent('device-connected', {
@@ -64,7 +62,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           // Device is already open, just update state
           setIsConnected(true)
           setOpenDeviceId(deviceToConnect.id)
-          setConnectionAttempted(prev => new Set(prev).add(deviceToConnect.id))
           
           // Dispatch event anyway since device is usable
           const event = new CustomEvent('device-connected', {
@@ -74,17 +71,15 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         } else {
           // Real error, show it
           setError(response.error?.message || 'Failed to connect to device')
-          setConnectionAttempted(prev => new Set(prev).add(deviceToConnect.id))
         }
       }
     } catch (err) {
       console.error('[DeviceList] Error connecting:', err)
       setError(err instanceof Error ? err.message : 'Failed to connect to device')
-      setConnectionAttempted(prev => new Set(prev).add(deviceToConnect.id))
     } finally {
       setConnecting(false)
     }
-  }, [connecting, openDeviceId])
+  }, [connecting, openDeviceId, isConnected])
 
   // Disconnect from device
   const disconnectDevice = useCallback(async (deviceId: string) => {
@@ -102,7 +97,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         console.log('[DeviceList] Device disconnected successfully')
         setIsConnected(false)
         setOpenDeviceId(null)
-        setConnectionAttempted(new Set())
         
         // Dispatch custom event to notify other components
         const event = new CustomEvent('device-disconnected', {
@@ -111,6 +105,11 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         window.dispatchEvent(event)
       } else {
         console.error('[DeviceList] Failed to disconnect:', response.error?.message)
+        // If device is not open, that's fine - just clear state
+        if (response.error?.message?.includes('not open')) {
+          setIsConnected(false)
+          setOpenDeviceId(null)
+        }
       }
     } catch (err) {
       console.error('[DeviceList] Error disconnecting:', err)
@@ -118,12 +117,9 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   }, [])
 
   const loadDevices = useCallback(async () => {
-    // Only show loading on initial load (when we have no device and no error)
-    const isInitialLoad = device === null && !error
-    if (isInitialLoad) {
-      setLoading(true)
-    }
-
+    // Only show loading on very first load
+    const isFirstLoad = device === null && !error && loading
+    
     try {
       // Wait for chromeBridge to be available (with timeout)
       let retries = 0
@@ -164,26 +160,28 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
             await disconnectDevice(openDeviceId)
           }
           
-          // Only try to connect if we haven't attempted this device yet
-          if (!connectionAttempted.has(currentDevice.id)) {
-            // Small delay to ensure UI updates first
-            setTimeout(() => connectDevice(currentDevice), 100)
-          } else if (openDeviceId === currentDevice.id) {
-            // We've attempted this device and it's already open, keep connected state
-            setIsConnected(true)
-          }
+          // Try to connect (will handle "already open" internally)
+          // Small delay to ensure UI updates first
+          setTimeout(() => connectDevice(currentDevice), 100)
+        } else if (currentDevice && !deviceChanged && openDeviceId === currentDevice.id && !isConnected) {
+          // Same device, already tried to open it, but state says not connected
+          // This can happen on component remount - check if it's actually open
+          setIsConnected(true)
+          // Dispatch event so protocols page can detect
+          const event = new CustomEvent('device-connected', {
+            detail: { deviceId: currentDevice.id }
+          })
+          window.dispatchEvent(event)
         } else if (!currentDevice && openDeviceId) {
           // Device was removed, disconnect and clear state
           await disconnectDevice(openDeviceId)
           setDevice(null)
           setIsConnected(false)
           setOpenDeviceId(null)
-          setConnectionAttempted(new Set())
         } else if (!currentDevice) {
           // No device and no open device, just clear state
           setIsConnected(false)
           setOpenDeviceId(null)
-          setConnectionAttempted(new Set())
         }
       } else {
         throw new Error(response.error?.message || 'Failed to list devices')
@@ -191,17 +189,18 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     } catch (err) {
       console.error('Error loading devices:', err)
       const message = err instanceof Error ? err.message : 'Failed to load devices'
-      // Only set error and clear device on initial load or if we had a device before
-      if (isInitialLoad || device !== null) {
+      // Only set error and clear device on first load
+      if (isFirstLoad || device !== null) {
         setError(message)
         setDevice(null)
       }
     } finally {
-      if (isInitialLoad) {
+      // Turn off loading after first attempt
+      if (loading) {
         setLoading(false)
       }
     }
-  }, [device, error, openDeviceId, connectionAttempted, connectDevice, disconnectDevice])
+  }, [device, error, loading, openDeviceId, isConnected, connectDevice, disconnectDevice])
 
   useEffect(() => {
     loadDevices()
