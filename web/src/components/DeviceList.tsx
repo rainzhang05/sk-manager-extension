@@ -49,6 +49,9 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         setIsConnected(true)
         setOpenDeviceId(deviceToConnect.id)
         
+        // Store connected device ID in sessionStorage for other components
+        sessionStorage.setItem('connectedDeviceId', deviceToConnect.id)
+        
         // Dispatch custom event to notify other components
         const event = new CustomEvent('device-connected', {
           detail: { deviceId: deviceToConnect.id }
@@ -63,6 +66,9 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           // Device is already open, just update state
           setIsConnected(true)
           setOpenDeviceId(deviceToConnect.id)
+          
+          // Store connected device ID in sessionStorage for other components
+          sessionStorage.setItem('connectedDeviceId', deviceToConnect.id)
           
           // Dispatch event anyway since device is usable
           const event = new CustomEvent('device-connected', {
@@ -98,6 +104,9 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         console.log('[DeviceList] Device disconnected successfully')
         setIsConnected(false)
         setOpenDeviceId(null)
+        
+        // Clear connected device ID from sessionStorage
+        sessionStorage.removeItem('connectedDeviceId')
         
         // Dispatch custom event to notify other components
         const event = new CustomEvent('device-disconnected', {
