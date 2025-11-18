@@ -20,6 +20,8 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [connectedDeviceId, setConnectedDeviceId] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState<string | null>(null)
 
   const loadDevices = async () => {
     setLoading(true)
@@ -53,6 +55,43 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   const handleRefresh = () => {
     loadDevices()
     onRefresh?.()
+  }
+
+  const handleConnect = async (deviceId: string) => {
+    try {
+      setConnecting(deviceId)
+      const response = await window.chromeBridge.send('openDevice', { deviceId })
+      
+      if (response.status === 'ok') {
+        setConnectedDeviceId(deviceId)
+        console.log('Device connected successfully:', deviceId)
+      } else {
+        throw new Error(response.error?.message || 'Failed to connect')
+      }
+    } catch (err) {
+      console.error('Error connecting to device:', err)
+      const message = err instanceof Error ? err.message : 'Connection failed'
+      alert(`Failed to connect: ${message}`)
+    } finally {
+      setConnecting(null)
+    }
+  }
+
+  const handleDisconnect = async (deviceId: string) => {
+    try {
+      const response = await window.chromeBridge.send('closeDevice', { deviceId })
+      
+      if (response.status === 'ok') {
+        setConnectedDeviceId(null)
+        console.log('Device disconnected successfully:', deviceId)
+      } else {
+        throw new Error(response.error?.message || 'Failed to disconnect')
+      }
+    } catch (err) {
+      console.error('Error disconnecting device:', err)
+      const message = err instanceof Error ? err.message : 'Disconnect failed'
+      alert(`Failed to disconnect: ${message}`)
+    }
   }
 
   const formatVendorId = (vid: number) => `0x${vid.toString(16).padStart(4, '0').toUpperCase()}`
@@ -130,46 +169,68 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         </button>
       </div>
       <div className="device-grid">
-        {devices.map((device) => (
-          <div key={device.id} className="device-card">
-            <div className="device-card-header">
-              <span className="device-icon">🔑</span>
-              <span className={`device-type-badge ${device.device_type.toLowerCase()}`}>
-                {device.device_type.toUpperCase()}
-              </span>
-            </div>
-            <div className="device-card-body">
-              <h3 className="device-name">
-                {device.manufacturer && device.product_name
-                  ? `${device.manufacturer} ${device.product_name}`
-                  : device.product_name || device.manufacturer || 'Unknown Device'}
-              </h3>
-              <div className="device-details">
-                <div className="device-detail-row">
-                  <span className="detail-label">Type:</span>
-                  <span className="detail-value">{device.device_type}</span>
-                </div>
-                <div className="device-detail-row">
-                  <span className="detail-label">VID:</span>
-                  <span className="detail-value">{formatVendorId(device.vendor_id)}</span>
-                  <span className="detail-label">PID:</span>
-                  <span className="detail-value">{formatProductId(device.product_id)}</span>
-                </div>
-                {device.serial_number && (
+        {devices.map((device) => {
+          const isConnected = connectedDeviceId === device.id
+          const isConnecting = connecting === device.id
+          const canConnect = !connectedDeviceId || isConnected
+          
+          return (
+            <div key={device.id} className={`device-card ${isConnected ? 'connected' : ''}`}>
+              <div className="device-card-header">
+                <span className="device-icon">🔑</span>
+                <span className={`device-type-badge ${device.device_type.toLowerCase()}`}>
+                  {device.device_type.toUpperCase()}
+                </span>
+                {isConnected && (
+                  <span className="connected-badge">Connected</span>
+                )}
+              </div>
+              <div className="device-card-body">
+                <h3 className="device-name">
+                  {device.manufacturer && device.product_name
+                    ? `${device.manufacturer} ${device.product_name}`
+                    : device.product_name || device.manufacturer || 'Unknown Device'}
+                </h3>
+                <div className="device-details">
                   <div className="device-detail-row">
-                    <span className="detail-label">Serial:</span>
-                    <span className="detail-value">{device.serial_number}</span>
+                    <span className="detail-label">Type:</span>
+                    <span className="detail-value">{device.device_type}</span>
                   </div>
+                  <div className="device-detail-row">
+                    <span className="detail-label">VID:</span>
+                    <span className="detail-value">{formatVendorId(device.vendor_id)}</span>
+                    <span className="detail-label">PID:</span>
+                    <span className="detail-value">{formatProductId(device.product_id)}</span>
+                  </div>
+                  {device.serial_number && (
+                    <div className="device-detail-row">
+                      <span className="detail-label">Serial:</span>
+                      <span className="detail-value">{device.serial_number}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="device-card-footer">
+                {isConnected ? (
+                  <button 
+                    className="btn-secondary btn-disconnect" 
+                    onClick={() => handleDisconnect(device.id)}
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button 
+                    className="btn-primary btn-connect" 
+                    onClick={() => handleConnect(device.id)}
+                    disabled={!canConnect || isConnecting}
+                  >
+                    {isConnecting ? 'Connecting...' : 'Connect'}
+                  </button>
                 )}
               </div>
             </div>
-            <div className="device-card-footer">
-              <button className="btn-primary btn-connect" disabled>
-                Connect
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
