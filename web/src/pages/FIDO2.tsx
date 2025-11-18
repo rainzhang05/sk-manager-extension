@@ -59,10 +59,26 @@ export default function FIDO2() {
   const [resetConfirmText, setResetConfirmText] = useState('')
 
   useEffect(() => {
+    // Check if there's already a connected device on mount
+    const checkExistingDevice = () => {
+      const storedDeviceId = sessionStorage.getItem('connectedDeviceId')
+      if (storedDeviceId && !connectedDevice) {
+        console.log('[FIDO2] Found existing connected device:', storedDeviceId)
+        setConnectedDevice(storedDeviceId)
+        loadDeviceInfo(storedDeviceId)
+        loadPinRetries(storedDeviceId)
+        loadCredentials(storedDeviceId)
+      }
+    }
+    
+    // Check for existing device immediately
+    checkExistingDevice()
+    
     // Listen for device connection events
     const handleDeviceConnected = (event: Event) => {
       const customEvent = event as CustomEvent
       const deviceId = customEvent.detail.deviceId
+      console.log('[FIDO2] Device connected event:', deviceId)
       setConnectedDevice(deviceId)
       loadDeviceInfo(deviceId)
       loadPinRetries(deviceId)
@@ -70,6 +86,7 @@ export default function FIDO2() {
     }
 
     const handleDeviceDisconnected = () => {
+      console.log('[FIDO2] Device disconnected event')
       setConnectedDevice(null)
       setDeviceInfo(null)
       setPinRetries(null)
