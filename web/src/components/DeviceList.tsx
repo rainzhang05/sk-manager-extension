@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import '../styles/DeviceList.css'
 
 interface Device {
@@ -22,10 +22,12 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   const [error, setError] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [openDeviceId, setOpenDeviceId] = useState<string | null>(null)
 
   // Auto-connect to device when detected
-  const connectDevice = async (deviceToConnect: Device) => {
-    if (!window.chromeBridge || connecting || isConnected) {
+  const connectDevice = useCallback(async (deviceToConnect: Device) => {
+    // Check if device is already open
+    if (!window.chromeBridge || connecting || openDeviceId === deviceToConnect.id) {
       return
     }
 
@@ -39,6 +41,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       if (response.status === 'ok') {
         console.log('[DeviceList] Device connected successfully')
         setIsConnected(true)
+        setOpenDeviceId(deviceToConnect.id)
         
         // Dispatch custom event to notify other components
         const event = new CustomEvent('device-connected', {
@@ -47,7 +50,20 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         window.dispatchEvent(event)
       } else {
         console.error('[DeviceList] Failed to connect:', response.error?.message)
-        setError(response.error?.message || 'Failed to connect to device')
+        // Don't set error if device is already open - that's okay
+        if (!response.error?.message?.includes('already open')) {
+          setError(response.error?.message || 'Failed to connect to device')
+        } else {
+          // Device is already open, just update state
+          setIsConnected(true)
+          setOpenDeviceId(deviceToConnect.id)
+          
+          // Dispatch event anyway since device is usable
+          const event = new CustomEvent('device-connected', {
+            detail: { deviceId: deviceToConnect.id }
+          })
+          window.dispatchEvent(event)
+        }
       }
     } catch (err) {
       console.error('[DeviceList] Error connecting:', err)
@@ -55,10 +71,10 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     } finally {
       setConnecting(false)
     }
-  }
+  }, [connecting, openDeviceId])
 
   // Disconnect from device
-  const disconnectDevice = async (deviceId: string) => {
+  const disconnectDevice = useCallback(async (deviceId: string) => {
     if (!window.chromeBridge) {
       return
     }
@@ -72,6 +88,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       if (response.status === 'ok') {
         console.log('[DeviceList] Device disconnected successfully')
         setIsConnected(false)
+        setOpenDeviceId(null)
         
         // Dispatch custom event to notify other components
         const event = new CustomEvent('device-disconnected', {
@@ -84,16 +101,21 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     } catch (err) {
       console.error('[DeviceList] Error disconnecting:', err)
     }
-  }
+  }, [])
 
-  const loadDevices = async () => {
-    setLoading(true)
-    setError(null)
+  const loadDevices = useCallback(async () => {
+    // Only show loading on initial load
+    const isInitialLoad = device === null && !error
+    if (isInitialLoad) {
+      setLoading(true)
+    }
+    
+    // Clear error on each check (but don't reset if just polling)
+    if (error && !isInitialLoad) {
+      setError(null)
+    }
 
     try {
-      console.log('[DeviceList] Starting loadDevices, checking for chromeBridge...')
-      console.log('[DeviceList] window.chromeBridge exists?', !!window.chromeBridge)
-      
       // Wait for chromeBridge to be available (with timeout)
       let retries = 0
       const maxRetries = 50 // 5 seconds max wait
@@ -102,17 +124,12 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         retries++
       }
 
-      console.log('[DeviceList] After waiting, chromeBridge exists?', !!window.chromeBridge)
-
       // Check if chromeBridge exists
       if (!window.chromeBridge) {
-        console.log('[DeviceList] chromeBridge still not available after waiting')
         throw new Error('Chrome extension not connected. Please install the extension.')
       }
 
-      console.log('[DeviceList] Calling listDevices...')
       const response = await window.chromeBridge!.send('listDevices')
-      console.log('[DeviceList] Response:', response)
       
       if (response.status === 'ok' && response.result) {
         const result = response.result as { devices?: Device[] }
@@ -124,11 +141,11 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         
         setDevice(currentDevice)
         
-        // Auto-connect if new device detected and not already connected
-        if (currentDevice && deviceChanged && !isConnected) {
+        // Auto-connect if new device detected and not already open
+        if (currentDevice && deviceChanged && openDeviceId !== currentDevice.id) {
           // Small delay to ensure UI updates first
           setTimeout(() => connectDevice(currentDevice), 100)
-        } else if (!currentDevice && isConnected) {
+        } else if (!currentDevice && openDeviceId) {
           // Device was removed, disconnect
           if (device) {
             disconnectDevice(device.id)
@@ -143,9 +160,11 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       setError(message)
       setDevice(null)
     } finally {
-      setLoading(false)
+      if (isInitialLoad) {
+        setLoading(false)
+      }
     }
-  }
+  }, [device, error, openDeviceId, connectDevice, disconnectDevice])
 
   useEffect(() => {
     loadDevices()
@@ -154,7 +173,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     const interval = setInterval(loadDevices, 2000)
     
     return () => clearInterval(interval)
-  }, [])
+  }, [loadDevices])
 
   const handleRefresh = () => {
     loadDevices()
