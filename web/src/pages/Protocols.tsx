@@ -86,8 +86,9 @@ export default function Protocols() {
   useEffect(() => {
     let detectionInProgress = false
 
-    const handleDeviceConnected = async (event: CustomEvent) => {
-      const deviceId = event.detail.deviceId
+    const handleDeviceConnected = async (event: Event) => {
+      const customEvent = event as CustomEvent
+      const deviceId = customEvent.detail.deviceId
       console.log('[Protocols] Device connected event:', deviceId)
       
       // Prevent duplicate detections
@@ -112,15 +113,15 @@ export default function Protocols() {
       detectionInProgress = false
     }
 
-    window.addEventListener('device-connected', handleDeviceConnected as EventListener)
-    window.addEventListener('device-disconnected', handleDeviceDisconnected as EventListener)
+    window.addEventListener('device-connected', handleDeviceConnected)
+    window.addEventListener('device-disconnected', handleDeviceDisconnected)
 
     // Load devices on mount
     loadDevices()
 
     return () => {
-      window.removeEventListener('device-connected', handleDeviceConnected as EventListener)
-      window.removeEventListener('device-disconnected', handleDeviceDisconnected as EventListener)
+      window.removeEventListener('device-connected', handleDeviceConnected)
+      window.removeEventListener('device-disconnected', handleDeviceDisconnected)
     }
   }, [connectedDeviceId, protocols])
 
