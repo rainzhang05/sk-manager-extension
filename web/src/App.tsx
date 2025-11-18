@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { Dashboard, Protocols } from './pages'
+import { Dashboard, Protocols, DebugConsole } from './pages'
 import './styles/App.css'
 
 // Placeholder pages - will be implemented in later phases
@@ -38,6 +38,7 @@ function App() {
             <li><a href="/piv">PIV</a></li>
             <li><a href="/otp">OTP</a></li>
             <li><a href="/protocols">Protocols</a></li>
+            <li><a href="/debug">Debug</a></li>
           </ul>
         </nav>
         <main className="main-content">
@@ -47,6 +48,7 @@ function App() {
             <Route path="/piv" element={<PIVManager />} />
             <Route path="/otp" element={<OTPManager />} />
             <Route path="/protocols" element={<Protocols />} />
+            <Route path="/debug" element={<DebugConsole />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

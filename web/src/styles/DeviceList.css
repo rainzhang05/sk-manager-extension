@@ -209,6 +209,30 @@
   max-width: 200px;
 }
 
+.btn-disconnect {
+  width: 100%;
+  max-width: 200px;
+}
+
+/* Connected Device Styling */
+.device-card.connected {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+}
+
+.device-card.connected:hover {
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2), var(--shadow-md);
+}
+
+.connected-badge {
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-success);
+  color: white;
+}
+
 /* Buttons */
 .btn-primary,
 .btn-secondary {
