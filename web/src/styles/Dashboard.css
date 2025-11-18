@@ -1,0 +1,147 @@
+/* Dashboard Styles */
+
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.page-description {
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  margin: 0;
+}
+
+/* Status Section */
+.status-section h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+}
+
+.status-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.status-card {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--color-border);
+  background: var(--color-bg-primary);
+  transition: all 0.2s ease;
+}
+
+.status-card.connected {
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.status-card.disconnected {
+  border-color: var(--color-error-light);
+  background: var(--color-error-bg);
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.status-icon {
+  font-size: 24px;
+}
+
+.status-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.status-help {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 8px 0 0 0;
+  line-height: 1.4;
+}
+
+/* Devices Section */
+.devices-section {
+  /* Inherits DeviceList styles */
+}
+
+/* Quick Actions Section */
+.quick-actions-section h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.quick-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  text-decoration: none;
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.quick-action-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--color-primary);
+}
+
+.quick-action-card:active {
+  transform: translateY(0);
+}
+
+.action-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.quick-action-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.quick-action-card p {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}

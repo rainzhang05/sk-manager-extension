@@ -7,6 +7,15 @@
   --color-text-secondary: #666666;
   --color-border: #e0e0e0;
   --color-accent: #000000;
+  --color-primary: #000000;
+  --color-primary-dark: #333333;
+  
+  /* Status Colors */
+  --color-success: #22c55e;
+  --color-success-bg: #f0fdf4;
+  --color-error: #ef4444;
+  --color-error-light: #fca5a5;
+  --color-error-bg: #fef2f2;
   
   /* Spacing System (8px base) */
   --spacing-xs: 8px;

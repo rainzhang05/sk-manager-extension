@@ -1,14 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { Dashboard, Protocols } from './pages'
 import './styles/App.css'
 
 // Placeholder pages - will be implemented in later phases
-const Dashboard = () => (
-  <div className="page">
-    <h1>Dashboard</h1>
-    <p>Device overview, connection status, and quick actions</p>
-  </div>
-)
-
 const FIDO2Manager = () => (
   <div className="page">
     <h1>FIDO2 Manager</h1>
@@ -27,39 +21,6 @@ const OTPManager = () => (
   <div className="page">
     <h1>OTP Manager</h1>
     <p>HOTP configuration</p>
-  </div>
-)
-
-const Protocols = () => (
-  <div className="page">
-    <h1>Protocols</h1>
-    <p>Detect and enable/disable supported protocols</p>
-    <div className="card" style={{ marginTop: '24px' }}>
-      <h2>Protocol Detection</h2>
-      <p style={{ marginBottom: '16px' }}>
-        Connect a Feitian security key to detect supported protocols.
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
-          <strong>FIDO2 (CTAP2)</strong> - Modern authentication protocol
-        </div>
-        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
-          <strong>U2F (CTAP1)</strong> - Legacy authentication protocol
-        </div>
-        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
-          <strong>PIV</strong> - Smart card authentication
-        </div>
-        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
-          <strong>OpenPGP</strong> - Email encryption and signing
-        </div>
-        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
-          <strong>OTP</strong> - One-time password generation
-        </div>
-        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
-          <strong>NDEF</strong> - NFC data exchange
-        </div>
-      </div>
-    </div>
   </div>
 )
 
