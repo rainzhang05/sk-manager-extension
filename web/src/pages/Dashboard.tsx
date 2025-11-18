@@ -6,12 +6,36 @@ export default function Dashboard() {
   const [extensionConnected, setExtensionConnected] = useState(false)
   const [nativeHostConnected, setNativeHostConnected] = useState(false)
   const [version, setVersion] = useState<string>('unknown')
+  const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    checkConnections()
+    // Wait for chromeBridge to be available
+    const waitForBridge = () => {
+      if (window.chromeBridge) {
+        checkConnections()
+      } else {
+        // Retry after a short delay
+        setTimeout(waitForBridge, 100)
+      }
+    }
+    
+    waitForBridge()
+    
+    // Also listen for the chromeBridgeReady event
+    const handleBridgeReady = () => {
+      checkConnections()
+    }
+    
+    window.addEventListener('chromeBridgeReady', handleBridgeReady)
+    
+    return () => {
+      window.removeEventListener('chromeBridgeReady', handleBridgeReady)
+    }
   }, [])
 
   const checkConnections = async () => {
+    setChecking(true)
+    
     // Check extension
     if (window.chromeBridge) {
       setExtensionConnected(true)
@@ -26,12 +50,15 @@ export default function Dashboard() {
           setVersion(ver)
         }
       } catch (err) {
+        console.error('Error checking native host connection:', err)
         setNativeHostConnected(false)
       }
     } else {
       setExtensionConnected(false)
       setNativeHostConnected(false)
     }
+    
+    setChecking(false)
   }
 
   return (
@@ -53,11 +80,11 @@ export default function Dashboard() {
                 <span className="status-label">Chrome Extension</span>
               </div>
               <div className="status-value">
-                {extensionConnected ? 'Connected' : 'Not Connected'}
+                {checking && !extensionConnected ? 'Checking...' : extensionConnected ? 'Connected' : 'Not Connected'}
               </div>
-              {!extensionConnected && (
+              {!extensionConnected && !checking && (
                 <p className="status-help">
-                  Please install the Feitian SK Manager extension from the Chrome Web Store.
+                  Please install and enable the Feitian SK Manager extension. Make sure you've loaded the unpacked extension from chrome://extensions/
                 </p>
               )}
             </div>
@@ -68,15 +95,18 @@ export default function Dashboard() {
                 <span className="status-label">Native Host</span>
               </div>
               <div className="status-value">
-                {nativeHostConnected ? `Connected (v${version})` : 'Not Connected'}
+                {checking && !nativeHostConnected ? 'Checking...' : nativeHostConnected ? `Connected (v${version})` : 'Not Connected'}
               </div>
-              {!nativeHostConnected && extensionConnected && (
+              {!nativeHostConnected && extensionConnected && !checking && (
                 <p className="status-help">
-                  Please install the native messaging host application.
+                  Native host not responding. Please ensure: 1) Native host is built (cargo build --release), 2) Manifest is installed (run setup-native-host.sh), 3) Chrome is fully restarted.
                 </p>
               )}
             </div>
           </div>
+          <button onClick={checkConnections} className="btn-secondary" style={{ marginTop: '16px' }}>
+            🔄 Recheck Connections
+          </button>
         </div>
 
         <div className="devices-section">
