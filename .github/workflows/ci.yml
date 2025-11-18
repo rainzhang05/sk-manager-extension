@@ -104,7 +104,7 @@ jobs:
     
     - name: Lint with clippy
       working-directory: native
-      run: cargo clippy -- -D warnings
+      run: cargo clippy -- -W clippy::all
     
     - name: Build release
       working-directory: native

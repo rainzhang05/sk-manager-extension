@@ -27,7 +27,7 @@ fn detect_fido2(device_manager: &DeviceManager, device_id: &str) -> bool {
     // CTAP2 HID packet format: [CID(4) | CMD(1) | BCNTH(1) | BCNTL(1) | DATA]
     // For initialization, we use broadcast CID: 0xFFFFFFFF
     // CMD_CBOR = 0x10 | 0x80 = 0x90
-    let mut packet = vec![0u8; 64];
+    let mut packet = [0u8; 64];
     packet[0..4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Broadcast CID
     packet[4] = 0x90; // CMD_CBOR | TYPE_INIT
     packet[5] = 0x00; // BCNTH (high byte of length)
@@ -68,7 +68,7 @@ fn detect_u2f(device_manager: &DeviceManager, device_id: &str) -> bool {
 
     // U2F raw message format (sent via HID)
     // CMD_MSG = 0x03 | 0x80 = 0x83
-    let mut packet = vec![0u8; 64];
+    let mut packet = [0u8; 64];
     packet[0..4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Broadcast CID
     packet[4] = 0x83; // CMD_MSG | TYPE_INIT
     packet[5] = 0x00; // BCNTH
@@ -195,7 +195,7 @@ fn detect_otp(device_manager: &DeviceManager, device_id: &str) -> bool {
 
     // Try Feitian vendor-specific OTP status command
     // This is a simplified check - actual OTP detection may vary by device model
-    let mut packet = vec![0u8; 64];
+    let mut packet = [0u8; 64];
     packet[0..4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Broadcast CID
     packet[4] = 0x83; // CMD_MSG
     packet[5] = 0x00; // BCNTH
