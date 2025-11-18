@@ -3,7 +3,7 @@
  * 
  * This script is injected into web pages and provides a bridge API
  * for the web UI to communicate with the extension background worker.
- * It exposes the window.chromeBridge object.
+ * Uses script injection to bypass Manifest V3 isolated worlds.
  */
 
 (function() {
@@ -11,10 +11,77 @@
   
   console.log('[Content] Feitian SK Manager content script loaded');
   
+  // Inject a script into the page context to create window.chromeBridge
+  const script = document.createElement('script');
+  script.textContent = `
+    (function() {
+      'use strict';
+      console.log('[Injected] Creating chromeBridge in page context');
+      
+      let requestIdCounter = 0;
+      const pendingRequests = new Map();
+      
+      // Listen for responses from content script
+      window.addEventListener('message', (event) => {
+        if (event.source !== window) return;
+        
+        if (event.data.type === 'FEITIAN_SK_MANAGER_RESPONSE') {
+          const { id, response } = event.data;
+          const resolve = pendingRequests.get(id);
+          if (resolve) {
+            resolve(response);
+            pendingRequests.delete(id);
+          }
+        }
+      });
+      
+      window.chromeBridge = {
+        send: function(command, params = {}) {
+          return new Promise((resolve) => {
+            const id = ++requestIdCounter;
+            pendingRequests.set(id, resolve);
+            
+            window.postMessage({
+              type: 'FEITIAN_SK_MANAGER_REQUEST',
+              id,
+              command,
+              params
+            }, '*');
+          });
+        },
+        
+        isConnected: async function() {
+          try {
+            const response = await this.send('ping');
+            return response.status === 'ok';
+          } catch (error) {
+            return false;
+          }
+        },
+        
+        getVersion: async function() {
+          const response = await this.send('getVersion');
+          return response.result?.version || 'unknown';
+        },
+        
+        onDisconnect: null
+      };
+      
+      console.log('[Injected] chromeBridge created and exposed to window');
+      window.dispatchEvent(new CustomEvent('chromeBridgeReady', { detail: window.chromeBridge }));
+    })();
+  `;
+  
+  (document.head || document.documentElement).appendChild(script);
+  script.remove();
+  
+  console.log('[Content] Script injected into page context');
+  
   /**
-   * Chrome Bridge API
+   * Chrome Bridge API (for content script context)
    * Provides methods for the web page to communicate with the extension
    */
+  const chromeBridge = {
   const chromeBridge = {
     /**
      * Send a command to the native host
@@ -46,49 +113,12 @@
           }
         );
       });
-    },
-    
-    /**
-     * Check if the extension is connected to the native host
-     * @returns {Promise<boolean>} True if connected
-     */
-    isConnected: async function() {
-      try {
-        const response = await this.send('ping');
-        return response.status === 'ok';
-      } catch (error) {
-        return false;
-      }
-    },
-    
-    /**
-     * Event handler for disconnection (can be overridden)
-     */
-    onDisconnect: null,
-    
-    /**
-     * Get the version of the native host
-     * @returns {Promise<string>} Version string
-     */
-    getVersion: async function() {
-      const response = await this.send('getVersion');
-      return response.result?.version || 'unknown';
     }
   };
   
-  // Expose the bridge to the window object
-  if (typeof window !== 'undefined') {
-    window.chromeBridge = chromeBridge;
-    console.log('[Content] chromeBridge API exposed to window');
-    
-    // Dispatch a custom event to notify the page that the bridge is ready
-    const event = new CustomEvent('chromeBridgeReady', { detail: chromeBridge });
-    window.dispatchEvent(event);
-  }
-  
   /**
-   * Listen for messages from the page
-   * This allows the page to communicate even if the bridge hasn't loaded yet
+   * Listen for messages from the page (injected script)
+   * Forward them to the background service worker
    */
   window.addEventListener('message', (event) => {
     // Only accept messages from the same origin
