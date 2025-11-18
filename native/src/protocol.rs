@@ -43,7 +43,10 @@ fn detect_fido2(device_manager: &DeviceManager, device_id: &str) -> bool {
             // Check if response looks like a valid CTAP2 response
             // Should start with CID and have CBOR response flag
             if response.len() >= 7 {
-                log::info!("FIDO2/CTAP2 supported (received {} byte response)", response.len());
+                log::info!(
+                    "FIDO2/CTAP2 supported (received {} byte response)",
+                    response.len()
+                );
                 true
             } else {
                 log::debug!("FIDO2/CTAP2 not supported (invalid response)");
@@ -70,7 +73,7 @@ fn detect_u2f(device_manager: &DeviceManager, device_id: &str) -> bool {
     packet[4] = 0x83; // CMD_MSG | TYPE_INIT
     packet[5] = 0x00; // BCNTH
     packet[6] = 0x07; // BCNTL = 7 bytes (U2F version request)
-    // U2F version APDU: 00 03 00 00 00 00 00
+                      // U2F version APDU: 00 03 00 00 00 00 00
     packet[7] = 0x00; // CLA
     packet[8] = 0x03; // INS (version)
     packet[9] = 0x00; // P1
@@ -87,7 +90,10 @@ fn detect_u2f(device_manager: &DeviceManager, device_id: &str) -> bool {
         Ok(response) => {
             // U2F version response should contain "U2F_V2" string
             if response.len() >= 10 {
-                log::info!("U2F/CTAP1 supported (received {} byte response)", response.len());
+                log::info!(
+                    "U2F/CTAP1 supported (received {} byte response)",
+                    response.len()
+                );
                 true
             } else {
                 log::debug!("U2F/CTAP1 not supported (invalid response)");
@@ -194,7 +200,7 @@ fn detect_otp(device_manager: &DeviceManager, device_id: &str) -> bool {
     packet[4] = 0x83; // CMD_MSG
     packet[5] = 0x00; // BCNTH
     packet[6] = 0x05; // BCNTL = 5 bytes
-    // Vendor command to check OTP status
+                      // Vendor command to check OTP status
     packet[7] = 0x00; // CLA
     packet[8] = 0x01; // INS (vendor-specific)
     packet[9] = 0x00; // P1
@@ -271,12 +277,15 @@ fn detect_ndef(device_manager: &DeviceManager, device_id: &str) -> bool {
 /// # Returns
 /// * `Ok(ProtocolSupport)` - Protocol support information
 /// * `Err` - If the device cannot be accessed or is not open
-pub fn detect_protocols(device_manager: &DeviceManager, device_id: &str) -> Result<ProtocolSupport> {
+pub fn detect_protocols(
+    device_manager: &DeviceManager,
+    device_id: &str,
+) -> Result<ProtocolSupport> {
     log::info!("Starting protocol detection for device: {}", device_id);
 
     // Note: Some detections may fail if device isn't the right type (HID vs CCID)
     // We catch errors and continue with other protocols
-    
+
     let fido2 = detect_fido2(device_manager, device_id);
     let u2f = detect_u2f(device_manager, device_id);
     let piv = detect_piv(device_manager, device_id);
