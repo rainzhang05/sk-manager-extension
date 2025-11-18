@@ -275,15 +275,3 @@ export default function DebugConsole() {
     </div>
   )
 }
-
-// Extend Window interface for TypeScript
-declare global {
-  interface Window {
-    chromeBridge: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      send: (command: string, params?: Record<string, unknown>) => Promise<any>
-      isConnected: () => Promise<boolean>
-      getVersion: () => Promise<string>
-    }
-  }
-}
