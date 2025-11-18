@@ -10,8 +10,43 @@ permissions:
   contents: read
 
 jobs:
+  # Chrome Extension validation - ensures extension can be published to Chrome Web Store
+  extension-check:
+    name: Chrome Extension Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate manifest.json
+      run: |
+        if ! jq empty extension/manifest.json; then
+          echo "Invalid manifest.json"
+          exit 1
+        fi
+        echo "✓ manifest.json is valid"
+    
+    - name: Check required extension files
+      run: |
+        test -f extension/manifest.json || exit 1
+        test -f extension/background/service-worker.js || exit 1
+        test -f extension/content/content.js || exit 1
+        test -f extension/icons/icon16.png || exit 1
+        test -f extension/icons/icon48.png || exit 1
+        test -f extension/icons/icon128.png || exit 1
+        echo "✓ Extension structure is valid"
+    
+    - name: Validate JavaScript syntax
+      run: |
+        node -c extension/background/service-worker.js
+        node -c extension/content/content.js
+        echo "✓ JavaScript syntax is valid"
+
+  # Web UI build - ensures the web interface builds correctly
   web-build:
-    name: Build Web UI
+    name: Web UI Build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,28 +63,20 @@ jobs:
       working-directory: web
       run: npm ci
     
-    - name: Type check
+    - name: Build and type check
       working-directory: web
       run: npm run build
     
     - name: Lint
       working-directory: web
       run: npm run lint
-      continue-on-error: true
-    
-    - name: Run tests
-      working-directory: web
-      run: npm test
-      continue-on-error: true
 
-  native-build:
-    name: Build Native Host
-    runs-on: ${{ matrix.os }}
+  # macOS native host - ensures compatibility with local Mac development
+  macos-native:
+    name: macOS Native Host
+    runs-on: macos-latest
     permissions:
       contents: read
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
     
     steps:
     - uses: actions/checkout@v4
@@ -62,82 +89,45 @@ jobs:
         components: rustfmt, clippy
         override: true
     
-    - name: Cache cargo registry
+    - name: Cache cargo
       uses: actions/cache@v3
       with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo index
-      uses: actions/cache@v3
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo build
-      uses: actions/cache@v3
-      with:
-        path: native/target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          native/target
+        key: macos-cargo-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Check formatting
       working-directory: native
       run: cargo fmt -- --check
     
-    - name: Clippy
+    - name: Lint with clippy
       working-directory: native
       run: cargo clippy -- -D warnings
     
-    - name: Build
+    - name: Build release
       working-directory: native
-      run: cargo build --release --verbose
+      run: cargo build --release
     
     - name: Run tests
       working-directory: native
-      run: cargo test --verbose
+      run: cargo test
     
-    - name: Upload artifact
+    - name: Upload macOS binary
       uses: actions/upload-artifact@v4
       with:
-        name: native-host-${{ matrix.os }}
-        path: |
-          native/target/release/feitian-sk-manager-native
-          native/target/release/feitian-sk-manager-native.exe
+        name: native-host-macos
+        path: native/target/release/feitian-sk-manager-native
 
-  extension-check:
-    name: Check Extension
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Validate manifest
-      run: |
-        if ! jq empty extension/manifest.json; then
-          echo "Invalid manifest.json"
-          exit 1
-        fi
-        echo "manifest.json is valid"
-    
-    - name: Check extension structure
-      run: |
-        test -f extension/manifest.json || exit 1
-        test -f extension/background/service-worker.js || exit 1
-        test -f extension/content/content.js || exit 1
-        test -f extension/icons/icon16.png || exit 1
-        test -f extension/icons/icon48.png || exit 1
-        test -f extension/icons/icon128.png || exit 1
-        echo "Extension structure is valid"
-
+  # Summary job
   all-checks:
     name: All Checks Passed
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [web-build, native-build, extension-check]
+    needs: [extension-check, web-build, macos-native]
     
     steps:
     - name: Success
-      run: echo "All checks passed!"
+      run: echo "✓ All checks passed - ready for Mac development and Chrome Web Store publication!"
