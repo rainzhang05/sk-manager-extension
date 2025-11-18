@@ -1,0 +1,265 @@
+/* FIDO2 Manager Styles */
+
+.message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.message.error {
+  background-color: #FEE;
+  color: #EF4444;
+  border: 1px solid #FECACA;
+}
+
+.message.success {
+  background-color: #ECFDF5;
+  color: #10B981;
+  border: 1px solid #A7F3D0;
+}
+
+.message button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: inherit;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.message button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #666666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #000000;
+  font-weight: 500;
+}
+
+.pin-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  background-color: #F5F5F5;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.pin-status .warning {
+  color: #EF4444;
+  font-weight: 600;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 16px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: #000000;
+  color: #FFFFFF;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #333333;
+}
+
+.btn-secondary {
+  background-color: #E0E0E0;
+  color: #000000;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #D0D0D0;
+}
+
+.btn-danger {
+  background-color: #EF4444;
+  color: #FFFFFF;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #DC2626;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.pin-form {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #F5F5F5;
+  border-radius: 12px;
+}
+
+.pin-form h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.pin-form input {
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid #E0E0E0;
+  border-radius: 12px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.pin-form input:focus {
+  outline: none;
+  border-color: #000000;
+}
+
+.pin-form input:disabled {
+  background-color: #F5F5F5;
+  cursor: not-allowed;
+}
+
+.empty-state-small {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666666;
+}
+
+.empty-state-small p {
+  margin: 8px 0;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: #999999;
+}
+
+.credential-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.credential-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background-color: #F5F5F5;
+  border-radius: 12px;
+  gap: 16px;
+}
+
+.credential-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.credential-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.credential-rp {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+}
+
+.credential-user {
+  font-size: 12px;
+  color: #666666;
+}
+
+.credential-id {
+  font-size: 11px;
+  color: #999999;
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.danger-zone {
+  border: 2px solid #EF4444;
+}
+
+.danger-zone h2 {
+  color: #EF4444;
+}
+
+.danger-zone p {
+  color: #666666;
+  margin-bottom: 16px;
+}
+
+.reset-confirm {
+  margin-top: 16px;
+}
+
+.reset-confirm p {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.reset-confirm input {
+  width: 100%;
+  padding: 10px 16px;
+  border: 2px solid #EF4444;
+  border-radius: 12px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.reset-confirm input:focus {
+  outline: none;
+  border-color: #DC2626;
+}

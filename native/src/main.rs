@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
 
 mod device;
+mod fido2;
 mod protocol;
 mod transport;
 
@@ -363,6 +364,251 @@ fn handle_detect_protocols(
     }
 }
 
+/// Handle a fido2GetInfo command
+fn handle_fido2_get_info(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling fido2GetInfo command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    match fido2::get_info(device_manager, device_id) {
+        Ok(info) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "info": info
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "FIDO2_GET_INFO_FAILED",
+            &format!("Failed to get FIDO2 info: {}", e),
+        ),
+    }
+}
+
+/// Handle a fido2GetPinRetries command
+fn handle_fido2_get_pin_retries(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling fido2GetPinRetries command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    match fido2::get_pin_retries(device_manager, device_id) {
+        Ok(retries) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "retries": retries
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "FIDO2_GET_PIN_RETRIES_FAILED",
+            &format!("Failed to get PIN retries: {}", e),
+        ),
+    }
+}
+
+/// Handle a fido2SetPin command
+fn handle_fido2_set_pin(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling fido2SetPin command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    let new_pin = match params.get("newPin").and_then(|v| v.as_str()) {
+        Some(pin) => pin,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing newPin parameter");
+        }
+    };
+
+    match fido2::set_pin(device_manager, device_id, new_pin) {
+        Ok(_) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "message": "PIN set successfully"
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "FIDO2_SET_PIN_FAILED",
+            &format!("Failed to set PIN: {}", e),
+        ),
+    }
+}
+
+/// Handle a fido2ChangePin command
+fn handle_fido2_change_pin(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling fido2ChangePin command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    let current_pin = match params.get("currentPin").and_then(|v| v.as_str()) {
+        Some(pin) => pin,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing currentPin parameter");
+        }
+    };
+
+    let new_pin = match params.get("newPin").and_then(|v| v.as_str()) {
+        Some(pin) => pin,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing newPin parameter");
+        }
+    };
+
+    match fido2::change_pin(device_manager, device_id, current_pin, new_pin) {
+        Ok(_) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "message": "PIN changed successfully"
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "FIDO2_CHANGE_PIN_FAILED",
+            &format!("Failed to change PIN: {}", e),
+        ),
+    }
+}
+
+/// Handle a fido2ListCredentials command
+fn handle_fido2_list_credentials(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling fido2ListCredentials command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    match fido2::list_credentials(device_manager, device_id) {
+        Ok(credentials) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "credentials": credentials
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "FIDO2_LIST_CREDENTIALS_FAILED",
+            &format!("Failed to list credentials: {}", e),
+        ),
+    }
+}
+
+/// Handle a fido2DeleteCredential command
+fn handle_fido2_delete_credential(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling fido2DeleteCredential command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    let credential_id = match params.get("credentialId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing credentialId parameter");
+        }
+    };
+
+    match fido2::delete_credential(device_manager, device_id, credential_id) {
+        Ok(_) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "message": "Credential deleted successfully"
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "FIDO2_DELETE_CREDENTIAL_FAILED",
+            &format!("Failed to delete credential: {}", e),
+        ),
+    }
+}
+
+/// Handle a fido2ResetDevice command
+fn handle_fido2_reset_device(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling fido2ResetDevice command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    match fido2::reset_device(device_manager, device_id) {
+        Ok(_) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "message": "Device reset successfully"
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "FIDO2_RESET_DEVICE_FAILED",
+            &format!("Failed to reset device: {}", e),
+        ),
+    }
+}
+
 /// Process a single request
 fn process_request(request: Request, device_manager: &device::DeviceManager) -> Response {
     log::info!(
@@ -381,6 +627,13 @@ fn process_request(request: Request, device_manager: &device::DeviceManager) -> 
         "receiveHid" => handle_receive_hid(request.id, &request.params, device_manager),
         "transmitApdu" => handle_transmit_apdu(request.id, &request.params, device_manager),
         "detectProtocols" => handle_detect_protocols(request.id, &request.params, device_manager),
+        "fido2GetInfo" => handle_fido2_get_info(request.id, &request.params, device_manager),
+        "fido2GetPinRetries" => handle_fido2_get_pin_retries(request.id, &request.params, device_manager),
+        "fido2SetPin" => handle_fido2_set_pin(request.id, &request.params, device_manager),
+        "fido2ChangePin" => handle_fido2_change_pin(request.id, &request.params, device_manager),
+        "fido2ListCredentials" => handle_fido2_list_credentials(request.id, &request.params, device_manager),
+        "fido2DeleteCredential" => handle_fido2_delete_credential(request.id, &request.params, device_manager),
+        "fido2ResetDevice" => handle_fido2_reset_device(request.id, &request.params, device_manager),
         _ => Response::error(
             request.id,
             "UNKNOWN_COMMAND",
