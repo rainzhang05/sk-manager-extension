@@ -18,18 +18,57 @@ pub struct ProtocolSupport {
 /// CTAP2 command for getInfo (0x04)
 const CTAP2_GETINFO: u8 = 0x04;
 
+/// CTAPHID commands
+const CTAPHID_INIT: u8 = 0x06;
+const CTAPHID_CBOR: u8 = 0x10;
+const CTAPHID_PING: u8 = 0x01;
+
 /// Detect FIDO2/CTAP2 support
 ///
-/// Sends CTAP2 getInfo command via HID
+/// Sends CTAP HID INIT command first to get a channel ID,
+/// then sends CTAP2 getInfo command via HID
 fn detect_fido2(device_manager: &DeviceManager, device_id: &str) -> bool {
     log::debug!("Detecting FIDO2/CTAP2 support...");
 
-    // CTAP2 HID packet format: [CID(4) | CMD(1) | BCNTH(1) | BCNTL(1) | DATA]
-    // For initialization, we use broadcast CID: 0xFFFFFFFF
-    // CMD_CBOR = 0x10 | 0x80 = 0x90
+    // Step 1: Send CTAPHID_INIT to get a channel ID
+    // This is required per CTAP2 spec before sending any commands
+    let mut init_packet = [0u8; 64];
+    init_packet[0..4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Broadcast CID
+    init_packet[4] = CTAPHID_INIT | 0x80; // INIT command with TYPE_INIT bit
+    init_packet[5] = 0x00; // BCNTH (high byte of length)
+    init_packet[6] = 0x08; // BCNTL (low byte of length = 8 bytes nonce)
+                           // Add 8-byte nonce
+    init_packet[7..15].copy_from_slice(&[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+
+    let cid = match device_manager.with_hid_device(device_id, |device| {
+        transport::send_hid(device, &init_packet)?;
+        let init_response = transport::receive_hid(device, 1000)?;
+
+        // Extract CID from response (bytes 15-18 of the INIT response)
+        if init_response.len() >= 19 {
+            let cid = [
+                init_response[15],
+                init_response[16],
+                init_response[17],
+                init_response[18],
+            ];
+            Ok(cid)
+        } else {
+            Err(anyhow::anyhow!("Invalid INIT response"))
+        }
+    }) {
+        Ok(cid) => cid,
+        Err(e) => {
+            log::debug!("CTAPHID_INIT failed: {}", e);
+            // Try with broadcast CID anyway (for devices that don't require INIT)
+            [0xFF, 0xFF, 0xFF, 0xFF]
+        }
+    };
+
+    // Step 2: Send CTAP2 getInfo command using the allocated CID
     let mut packet = [0u8; 64];
-    packet[0..4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Broadcast CID
-    packet[4] = 0x90; // CMD_CBOR | TYPE_INIT
+    packet[0..4].copy_from_slice(&cid); // Use allocated CID
+    packet[4] = CTAPHID_CBOR | 0x80; // CBOR command with TYPE_INIT bit
     packet[5] = 0x00; // BCNTH (high byte of length)
     packet[6] = 0x01; // BCNTL (low byte of length = 1)
     packet[7] = CTAP2_GETINFO; // getInfo command
@@ -62,10 +101,31 @@ fn detect_fido2(device_manager: &DeviceManager, device_id: &str) -> bool {
 
 /// Detect U2F/CTAP1 support
 ///
-/// Sends U2F version command via HID
+/// Sends U2F version command via HID (after INIT if needed)
 fn detect_u2f(device_manager: &DeviceManager, device_id: &str) -> bool {
     log::debug!("Detecting U2F/CTAP1 support...");
 
+    // Try CTAPHID_PING first to see if device responds
+    let mut ping_packet = [0u8; 64];
+    ping_packet[0..4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Broadcast CID
+    ping_packet[4] = CTAPHID_PING | 0x80; // PING command
+    ping_packet[5] = 0x00; // BCNTH
+    ping_packet[6] = 0x00; // BCNTL = 0 bytes
+
+    let responds = device_manager
+        .with_hid_device(device_id, |device| {
+            transport::send_hid(device, &ping_packet)?;
+            let response = transport::receive_hid(device, 500)?;
+            Ok(!response.is_empty())
+        })
+        .unwrap_or(false);
+
+    if !responds {
+        log::debug!("Device doesn't respond to CTAPHID_PING");
+        return false;
+    }
+
+    // Now try U2F version command
     // U2F raw message format (sent via HID)
     // CMD_MSG = 0x03 | 0x80 = 0x83
     let mut packet = [0u8; 64];
