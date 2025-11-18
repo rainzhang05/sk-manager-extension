@@ -14,13 +14,13 @@ pub struct ProtocolSupport {
 }
 
 /// Detect which protocols a device supports
-/// 
+///
 /// This is a placeholder implementation that returns all protocols as unsupported.
 /// Actual protocol detection will be implemented in Phase 5.
-/// 
+///
 /// # Arguments
 /// * `device_id` - The unique identifier of the device to check
-/// 
+///
 /// # Returns
 /// * `Ok(ProtocolSupport)` - Protocol support information
 /// * `Err` - If the device cannot be accessed
@@ -28,7 +28,7 @@ pub struct ProtocolSupport {
 pub fn detect_protocols(_device_id: &str) -> Result<ProtocolSupport> {
     log::debug!("Protocol detection requested (placeholder implementation)");
     log::info!("Protocol detection not yet implemented - returning all protocols as unsupported");
-    
+
     // TODO: Implement actual protocol detection in Phase 5
     // This will involve:
     // - FIDO2: Try CTAP2 getInfo command
@@ -37,7 +37,7 @@ pub fn detect_protocols(_device_id: &str) -> Result<ProtocolSupport> {
     // - OpenPGP: Try OpenPGP SELECT APDU
     // - OTP: Try OTP vendor command
     // - NDEF: Try NDEF read command
-    
+
     Ok(ProtocolSupport::default())
 }
 
@@ -77,7 +77,7 @@ mod tests {
     fn test_detect_protocols_placeholder() {
         let result = detect_protocols("test_device_id");
         assert!(result.is_ok());
-        
+
         let support = result.unwrap();
         // All should be false in placeholder implementation
         assert!(!support.fido2);
