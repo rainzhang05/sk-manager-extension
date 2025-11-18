@@ -1,3 +1,2 @@
-// Placeholder for future components
-// Components will be added in later phases
-export {}
+// Export components
+export { default as DeviceList } from './DeviceList'

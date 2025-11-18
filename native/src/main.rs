@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
 
+mod device;
+mod protocol;
+
 /// Request structure for JSON-RPC messages
 #[derive(Debug, Deserialize)]
 struct Request {
@@ -98,6 +101,24 @@ fn handle_get_version(id: u32) -> Response {
     )
 }
 
+/// Handle a listDevices command
+fn handle_list_devices(id: u32) -> Response {
+    log::debug!("Handling listDevices command");
+    match device::list_devices() {
+        Ok(devices) => Response::success(
+            id,
+            serde_json::json!({
+                "devices": devices
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "DEVICE_ENUMERATION_FAILED",
+            &format!("Failed to enumerate devices: {}", e),
+        ),
+    }
+}
+
 /// Process a single request
 fn process_request(request: Request) -> Response {
     log::info!(
@@ -109,6 +130,7 @@ fn process_request(request: Request) -> Response {
     match request.command.as_str() {
         "ping" => handle_ping(request.id),
         "getVersion" => handle_get_version(request.id),
+        "listDevices" => handle_list_devices(request.id),
         _ => Response::error(
             request.id,
             "UNKNOWN_COMMAND",

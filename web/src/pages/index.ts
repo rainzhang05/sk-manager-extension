@@ -1,3 +1,3 @@
-// Placeholder for future pages
-// Individual page components will be added in later phases
-export {}
+// Export pages
+export { default as Dashboard } from './Dashboard'
+export { default as Protocols } from './Protocols'
