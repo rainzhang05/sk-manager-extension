@@ -1,15 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { Dashboard, Protocols, DebugConsole } from './pages'
+import { Dashboard, FIDO2, Protocols, DebugConsole } from './pages'
 import './styles/App.css'
 
 // Placeholder pages - will be implemented in later phases
-const FIDO2Manager = () => (
-  <div className="page">
-    <h1>FIDO2 Manager</h1>
-    <p>PIN and credential management, U2F support</p>
-  </div>
-)
-
 const PIVManager = () => (
   <div className="page">
     <h1>PIV Manager</h1>
@@ -44,7 +37,7 @@ function App() {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/fido2" element={<FIDO2Manager />} />
+            <Route path="/fido2" element={<FIDO2 />} />
             <Route path="/piv" element={<PIVManager />} />
             <Route path="/otp" element={<OTPManager />} />
             <Route path="/protocols" element={<Protocols />} />
