@@ -9,7 +9,7 @@
 .debug-card {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-lg);
   padding: 24px;
   box-shadow: var(--shadow-sm);
 }
@@ -42,7 +42,7 @@
   width: 100%;
   padding: 12px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-lg);
   font-size: 14px;
   font-family: 'Courier New', monospace;
   background: var(--color-bg-secondary);
@@ -88,7 +88,7 @@
   background: #1e1e1e;
   color: #d4d4d4;
   padding: 20px;
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-lg);
   font-family: 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;

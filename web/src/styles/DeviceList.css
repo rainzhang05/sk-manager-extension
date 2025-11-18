@@ -237,7 +237,7 @@
 .btn-primary,
 .btn-secondary {
   padding: 10px 20px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
