@@ -11,7 +11,10 @@ use anyhow::{anyhow, Result};
 /// * `Err` - If the packet is too large or write fails
 pub fn send_hid(device: &hidapi::HidDevice, data: &[u8]) -> Result<usize> {
     if data.len() > 64 {
-        return Err(anyhow!("HID packet too large: {} bytes (max 64)", data.len()));
+        return Err(anyhow!(
+            "HID packet too large: {} bytes (max 64)",
+            data.len()
+        ));
     }
 
     // Pad to 64 bytes

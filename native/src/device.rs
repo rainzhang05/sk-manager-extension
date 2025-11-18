@@ -281,11 +281,7 @@ impl DeviceManager {
             .find(|d| d.id == device_id)
             .ok_or_else(|| anyhow::anyhow!("Device {} not found", device_id))?;
 
-        log::info!(
-            "Opening device: {} ({:?})",
-            device_id,
-            device.device_type
-        );
+        log::info!("Opening device: {} ({:?})", device_id, device.device_type);
 
         // Open based on device type
         match device.device_type {
@@ -300,8 +296,8 @@ impl DeviceManager {
             }
             DeviceType::Ccid => {
                 let pcsc_context = self.pcsc_context.lock().unwrap();
-                let reader_name =
-                    std::ffi::CString::new(device.path.as_bytes()).context("Invalid reader name")?;
+                let reader_name = std::ffi::CString::new(device.path.as_bytes())
+                    .context("Invalid reader name")?;
 
                 let card = pcsc_context
                     .connect(&reader_name, pcsc::ShareMode::Shared, pcsc::Protocols::ANY)
@@ -337,44 +333,49 @@ impl DeviceManager {
     }
 
     /// Get a reference to an open HID device
-    pub fn get_hid_device(&self, device_id: &str) -> Result<std::sync::MutexGuard<hidapi::HidDevice>> {
+    pub fn get_hid_device(
+        &self,
+        device_id: &str,
+    ) -> Result<std::sync::MutexGuard<hidapi::HidDevice>> {
         let open_devices = self.open_devices.lock().unwrap();
-        
+
         match open_devices.get(device_id) {
             Some(OpenDevice::Hid(_)) => {
                 // Drop the lock before we return a new one
                 drop(open_devices);
-                
+
                 // This is a bit tricky - we need to return a reference to the HidDevice
                 // but we can't hold the lock on open_devices while doing so
                 // For now, we'll return an error and handle this differently
-                Err(anyhow::anyhow!("HID device access requires refactoring - see transport.rs"))
+                Err(anyhow::anyhow!(
+                    "HID device access requires refactoring - see transport.rs"
+                ))
             }
-            Some(OpenDevice::Ccid(_)) => {
-                Err(anyhow::anyhow!("Device {} is a CCID device, not HID", device_id))
-            }
-            None => {
-                Err(anyhow::anyhow!("Device {} is not open", device_id))
-            }
+            Some(OpenDevice::Ccid(_)) => Err(anyhow::anyhow!(
+                "Device {} is a CCID device, not HID",
+                device_id
+            )),
+            None => Err(anyhow::anyhow!("Device {} is not open", device_id)),
         }
     }
 
     /// Get a reference to an open CCID card
     pub fn get_ccid_card(&self, device_id: &str) -> Result<std::sync::MutexGuard<pcsc::Card>> {
         let open_devices = self.open_devices.lock().unwrap();
-        
+
         match open_devices.get(device_id) {
             Some(OpenDevice::Ccid(_)) => {
                 // Same issue as get_hid_device
                 drop(open_devices);
-                Err(anyhow::anyhow!("CCID card access requires refactoring - see transport.rs"))
+                Err(anyhow::anyhow!(
+                    "CCID card access requires refactoring - see transport.rs"
+                ))
             }
-            Some(OpenDevice::Hid(_)) => {
-                Err(anyhow::anyhow!("Device {} is a HID device, not CCID", device_id))
-            }
-            None => {
-                Err(anyhow::anyhow!("Device {} is not open", device_id))
-            }
+            Some(OpenDevice::Hid(_)) => Err(anyhow::anyhow!(
+                "Device {} is a HID device, not CCID",
+                device_id
+            )),
+            None => Err(anyhow::anyhow!("Device {} is not open", device_id)),
         }
     }
 
@@ -384,15 +385,14 @@ impl DeviceManager {
         F: FnOnce(&hidapi::HidDevice) -> Result<R>,
     {
         let open_devices = self.open_devices.lock().unwrap();
-        
+
         match open_devices.get(device_id) {
             Some(OpenDevice::Hid(device)) => f(device),
-            Some(OpenDevice::Ccid(_)) => {
-                Err(anyhow::anyhow!("Device {} is a CCID device, not HID", device_id))
-            }
-            None => {
-                Err(anyhow::anyhow!("Device {} is not open", device_id))
-            }
+            Some(OpenDevice::Ccid(_)) => Err(anyhow::anyhow!(
+                "Device {} is a CCID device, not HID",
+                device_id
+            )),
+            None => Err(anyhow::anyhow!("Device {} is not open", device_id)),
         }
     }
 
@@ -402,15 +402,14 @@ impl DeviceManager {
         F: FnOnce(&pcsc::Card) -> Result<R>,
     {
         let open_devices = self.open_devices.lock().unwrap();
-        
+
         match open_devices.get(device_id) {
             Some(OpenDevice::Ccid(card)) => f(card),
-            Some(OpenDevice::Hid(_)) => {
-                Err(anyhow::anyhow!("Device {} is a HID device, not CCID", device_id))
-            }
-            None => {
-                Err(anyhow::anyhow!("Device {} is not open", device_id))
-            }
+            Some(OpenDevice::Hid(_)) => Err(anyhow::anyhow!(
+                "Device {} is a HID device, not CCID",
+                device_id
+            )),
+            None => Err(anyhow::anyhow!("Device {} is not open", device_id)),
         }
     }
 }
