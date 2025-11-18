@@ -32,7 +32,8 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     }
 
     // If this is the device we're already connected to, don't try again
-    if (openDeviceId === deviceToConnect.id && isConnected) {
+    if (openDeviceId === deviceToConnect.id) {
+      console.log('[DeviceList] Device already tracked as open:', deviceToConnect.id)
       return
     }
 
@@ -79,7 +80,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     } finally {
       setConnecting(false)
     }
-  }, [connecting, openDeviceId, isConnected])
+  }, [connecting, openDeviceId])
 
   // Disconnect from device
   const disconnectDevice = useCallback(async (deviceId: string) => {
@@ -163,15 +164,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           // Try to connect (will handle "already open" internally)
           // Small delay to ensure UI updates first
           setTimeout(() => connectDevice(currentDevice), 100)
-        } else if (currentDevice && !deviceChanged && openDeviceId === currentDevice.id && !isConnected) {
-          // Same device, already tried to open it, but state says not connected
-          // This can happen on component remount - check if it's actually open
-          setIsConnected(true)
-          // Dispatch event so protocols page can detect
-          const event = new CustomEvent('device-connected', {
-            detail: { deviceId: currentDevice.id }
-          })
-          window.dispatchEvent(event)
         } else if (!currentDevice && openDeviceId) {
           // Device was removed, disconnect and clear state
           await disconnectDevice(openDeviceId)
@@ -183,6 +175,8 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           setIsConnected(false)
           setOpenDeviceId(null)
         }
+        // REMOVED: The problematic "else if" that restored state on every poll
+        // This was causing repeated connection attempts and event dispatches
       } else {
         throw new Error(response.error?.message || 'Failed to list devices')
       }
@@ -200,7 +194,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         setLoading(false)
       }
     }
-  }, [device, error, loading, openDeviceId, isConnected, connectDevice, disconnectDevice])
+  }, [device, error, loading, openDeviceId, connectDevice, disconnectDevice])
 
   useEffect(() => {
     loadDevices()
