@@ -64,13 +64,14 @@ export default function DebugConsole() {
         return
       }
 
-      const result = await window.chromeBridge.send('sendHid', {
+      const result = await window.chromeBridge!.send('sendHid', {
         deviceId: connectedDeviceId,
         data: dataBytes
       })
 
       if (result.status === 'ok') {
-        setResponse(`✅ HID packet sent successfully\nBytes sent: ${result.result.bytesSent}`)
+        const resultData = result.result as { bytesSent: number }
+        setResponse(`✅ HID packet sent successfully\nBytes sent: ${resultData.bytesSent}`)
       } else {
         setResponse(`❌ Error: ${result.error?.message || 'Unknown error'}`)
       }
@@ -93,14 +94,15 @@ export default function DebugConsole() {
 
       const timeoutMs = parseInt(timeout) || 5000
 
-      const result = await window.chromeBridge.send('receiveHid', {
+      const result = await window.chromeBridge!.send('receiveHid', {
         deviceId: connectedDeviceId,
         timeout: timeoutMs
       })
 
       if (result.status === 'ok') {
-        const formatted = formatHexResponse(result.result.data)
-        setResponse(`✅ HID packet received\nBytes: ${result.result.data.length}\n\n${formatted}`)
+        const resultData = result.result as { data: number[] }
+        const formatted = formatHexResponse(resultData.data)
+        setResponse(`✅ HID packet received\nBytes: ${resultData.data.length}\n\n${formatted}`)
       } else {
         setResponse(`❌ Error: ${result.error?.message || 'Unknown error'}`)
       }
@@ -132,13 +134,14 @@ export default function DebugConsole() {
         return
       }
 
-      const result = await window.chromeBridge.send('transmitApdu', {
+      const result = await window.chromeBridge!.send('transmitApdu', {
         deviceId: connectedDeviceId,
         apdu: apduBytes
       })
 
       if (result.status === 'ok') {
-        const responseData = result.result.response
+        const resultData = result.result as { response: number[] }
+        const responseData = resultData.response
         const formatted = formatHexResponse(responseData)
         
         // Extract status word (last 2 bytes)
