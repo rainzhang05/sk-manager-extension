@@ -20,6 +20,71 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   const [device, setDevice] = useState<Device | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+
+  // Auto-connect to device when detected
+  const connectDevice = async (deviceToConnect: Device) => {
+    if (!window.chromeBridge || connecting || isConnected) {
+      return
+    }
+
+    setConnecting(true)
+    try {
+      console.log('[DeviceList] Connecting to device:', deviceToConnect.id)
+      const response = await window.chromeBridge.send('openDevice', {
+        deviceId: deviceToConnect.id
+      })
+
+      if (response.status === 'ok') {
+        console.log('[DeviceList] Device connected successfully')
+        setIsConnected(true)
+        
+        // Dispatch custom event to notify other components
+        const event = new CustomEvent('device-connected', {
+          detail: { deviceId: deviceToConnect.id }
+        })
+        window.dispatchEvent(event)
+      } else {
+        console.error('[DeviceList] Failed to connect:', response.error?.message)
+        setError(response.error?.message || 'Failed to connect to device')
+      }
+    } catch (err) {
+      console.error('[DeviceList] Error connecting:', err)
+      setError(err instanceof Error ? err.message : 'Failed to connect to device')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  // Disconnect from device
+  const disconnectDevice = async (deviceId: string) => {
+    if (!window.chromeBridge) {
+      return
+    }
+
+    try {
+      console.log('[DeviceList] Disconnecting from device:', deviceId)
+      const response = await window.chromeBridge.send('closeDevice', {
+        deviceId: deviceId
+      })
+
+      if (response.status === 'ok') {
+        console.log('[DeviceList] Device disconnected successfully')
+        setIsConnected(false)
+        
+        // Dispatch custom event to notify other components
+        const event = new CustomEvent('device-disconnected', {
+          detail: { deviceId: deviceId }
+        })
+        window.dispatchEvent(event)
+      } else {
+        console.error('[DeviceList] Failed to disconnect:', response.error?.message)
+      }
+    } catch (err) {
+      console.error('[DeviceList] Error disconnecting:', err)
+    }
+  }
 
   const loadDevices = async () => {
     setLoading(true)
@@ -52,8 +117,23 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       if (response.status === 'ok' && response.result) {
         const result = response.result as { devices?: Device[] }
         const devices = result.devices || []
-        // Only show the first device
-        setDevice(devices.length > 0 ? devices[0] : null)
+        const currentDevice = devices.length > 0 ? devices[0] : null
+        
+        // Check if device changed
+        const deviceChanged = !device || !currentDevice || device.id !== currentDevice.id
+        
+        setDevice(currentDevice)
+        
+        // Auto-connect if new device detected and not already connected
+        if (currentDevice && deviceChanged && !isConnected) {
+          // Small delay to ensure UI updates first
+          setTimeout(() => connectDevice(currentDevice), 100)
+        } else if (!currentDevice && isConnected) {
+          // Device was removed, disconnect
+          if (device) {
+            disconnectDevice(device.id)
+          }
+        }
       } else {
         throw new Error(response.error?.message || 'Failed to list devices')
       }
@@ -138,12 +218,14 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         <h2>Connected Device</h2>
       </div>
       <div className="device-grid">
-        <div className="device-card connected">
+        <div className={`device-card ${isConnected ? 'connected' : 'detected'}`}>
           <div className="device-card-header">
             <span className={`device-type-badge ${device.device_type.toLowerCase()}`}>
               {device.device_type.toUpperCase()}
             </span>
-            <span className="connected-badge">Connected</span>
+            <span className={isConnected ? 'connected-badge' : 'connecting-badge'}>
+              {connecting ? 'Connecting...' : isConnected ? 'Connected' : 'Detected'}
+            </span>
           </div>
           <div className="device-card-body">
             <h3 className="device-name">
