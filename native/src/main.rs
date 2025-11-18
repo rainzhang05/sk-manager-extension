@@ -7,6 +7,7 @@ struct Request {
     id: u32,
     command: String,
     #[serde(default)]
+    #[allow(dead_code)]
     params: serde_json::Value,
 }
 
