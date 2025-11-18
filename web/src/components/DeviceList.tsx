@@ -38,9 +38,9 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       } else {
         throw new Error(response.error?.message || 'Failed to list devices')
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading devices:', err)
-      setError(err.message || 'Failed to load devices')
+      setError(err instanceof Error ? err.message : 'Failed to load devices')
     } finally {
       setLoading(false)
     }
@@ -179,7 +179,8 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
 declare global {
   interface Window {
     chromeBridge: {
-      send: (command: string, params?: any) => Promise<any>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      send: (command: string, params?: Record<string, unknown>) => Promise<any>
       isConnected: () => Promise<boolean>
       getVersion: () => Promise<string>
     }
