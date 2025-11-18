@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, copilot/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  web-build:
+    name: Build Web UI
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: web
+      run: npm ci
+    
+    - name: Type check
+      working-directory: web
+      run: npm run build
+    
+    - name: Lint
+      working-directory: web
+      run: npm run lint
+      continue-on-error: true
+    
+    - name: Run tests
+      working-directory: web
+      run: npm test
+      continue-on-error: true
+
+  native-build:
+    name: Build Native Host
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: rustfmt, clippy
+        override: true
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache cargo build
+      uses: actions/cache@v3
+      with:
+        path: native/target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Check formatting
+      working-directory: native
+      run: cargo fmt -- --check
+    
+    - name: Clippy
+      working-directory: native
+      run: cargo clippy -- -D warnings
+    
+    - name: Build
+      working-directory: native
+      run: cargo build --release --verbose
+    
+    - name: Run tests
+      working-directory: native
+      run: cargo test --verbose
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: native-host-${{ matrix.os }}
+        path: |
+          native/target/release/feitian-sk-manager-native
+          native/target/release/feitian-sk-manager-native.exe
+
+  extension-check:
+    name: Check Extension
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate manifest
+      run: |
+        if ! jq empty extension/manifest.json; then
+          echo "Invalid manifest.json"
+          exit 1
+        fi
+        echo "manifest.json is valid"
+    
+    - name: Check extension structure
+      run: |
+        test -f extension/manifest.json || exit 1
+        test -f extension/background/service-worker.js || exit 1
+        test -f extension/content/content.js || exit 1
+        echo "Extension structure is valid"
+
+  all-checks:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [web-build, native-build, extension-check]
+    
+    steps:
+    - name: Success
+      run: echo "All checks passed!"

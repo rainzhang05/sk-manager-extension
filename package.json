@@ -1,0 +1,44 @@
+{
+  "name": "feitian-sk-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Feitian Security Key Manager - Web-based management tool",
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "build": "npm run build --workspace=web && cd native && cargo build --release",
+    "build:web": "npm run build --workspace=web",
+    "build:native": "cd native && cargo build --release",
+    "test": "npm run test --workspace=web && cd native && cargo test",
+    "test:web": "npm run test --workspace=web",
+    "test:native": "cd native && cargo test",
+    "lint": "npm run lint --workspace=web && cd native && cargo clippy",
+    "lint:web": "npm run lint --workspace=web",
+    "lint:native": "cd native && cargo clippy",
+    "format": "npm run format --workspace=web && cd native && cargo fmt",
+    "format:web": "npm run format --workspace=web",
+    "format:native": "cd native && cargo fmt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rainzhang05/sk-manager-extension.git"
+  },
+  "keywords": [
+    "feitian",
+    "security-key",
+    "fido2",
+    "u2f",
+    "piv",
+    "openpgp",
+    "otp",
+    "chrome-extension"
+  ],
+  "author": "Rain Zhang",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

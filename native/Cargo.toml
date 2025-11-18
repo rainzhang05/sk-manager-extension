@@ -1,0 +1,22 @@
+[package]
+name = "feitian-sk-manager-native"
+version = "0.1.0"
+edition = "2021"
+authors = ["Rain Zhang"]
+license = "MIT"
+description = "Native messaging host for Feitian SK Manager Chrome Extension"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+anyhow = "1.0"
+log = "0.4"
+env_logger = "0.11"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[[bin]]
+name = "feitian-sk-manager-native"
+path = "src/main.rs"
