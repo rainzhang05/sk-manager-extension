@@ -219,9 +219,9 @@ fn handle_send_hid(
     }
 
     // Execute HID send with the device
-    match device_manager.with_hid_device(device_id, |device| {
-        transport::send_hid(device, &data_bytes)
-    }) {
+    match device_manager
+        .with_hid_device(device_id, |device| transport::send_hid(device, &data_bytes))
+    {
         Ok(bytes_sent) => Response::success(
             id,
             serde_json::json!({
@@ -258,9 +258,9 @@ fn handle_receive_hid(
         .unwrap_or(5000) as i32;
 
     // Execute HID receive with the device
-    match device_manager.with_hid_device(device_id, |device| {
-        transport::receive_hid(device, timeout)
-    }) {
+    match device_manager
+        .with_hid_device(device_id, |device| transport::receive_hid(device, timeout))
+    {
         Ok(data) => Response::success(
             id,
             serde_json::json!({
@@ -332,10 +332,7 @@ fn handle_transmit_apdu(
 }
 
 /// Process a single request
-fn process_request(
-    request: Request,
-    device_manager: &device::DeviceManager,
-) -> Response {
+fn process_request(request: Request, device_manager: &device::DeviceManager) -> Response {
     log::info!(
         "Processing command: {} (id: {})",
         request.command,
@@ -485,7 +482,7 @@ mod tests {
             command: "unknownCommand".to_string(),
             params: serde_json::json!({}),
         };
-        
+
         // Try to create device manager, but don't fail if it can't be created
         if let Ok(device_manager) = device::DeviceManager::new() {
             let response = process_request(request, &device_manager);
