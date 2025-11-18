@@ -86,12 +86,8 @@
 
 .protocol-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: flex-start;
-}
-
-.protocol-icon {
-  font-size: 48px;
 }
 
 .protocol-badge {

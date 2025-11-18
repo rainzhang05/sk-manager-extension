@@ -117,7 +117,6 @@ export default function Protocols() {
       name: 'FIDO2',
       subtitle: 'CTAP2',
       description: 'Modern authentication protocol with biometric support',
-      icon: '🔐',
       supported: protocols?.fido2 || false,
     },
     {
@@ -125,7 +124,6 @@ export default function Protocols() {
       name: 'U2F',
       subtitle: 'CTAP1',
       description: 'Legacy universal second factor authentication',
-      icon: '🔑',
       supported: protocols?.u2f || false,
     },
     {
@@ -133,7 +131,6 @@ export default function Protocols() {
       name: 'PIV',
       subtitle: 'Smart Card',
       description: 'Personal identity verification for secure access',
-      icon: '💳',
       supported: protocols?.piv || false,
     },
     {
@@ -141,7 +138,6 @@ export default function Protocols() {
       name: 'OpenPGP',
       subtitle: 'Email Security',
       description: 'Email encryption and digital signatures',
-      icon: '✉️',
       supported: protocols?.openpgp || false,
     },
     {
@@ -149,7 +145,6 @@ export default function Protocols() {
       name: 'OTP',
       subtitle: 'HOTP',
       description: 'One-time password generation',
-      icon: '🔢',
       supported: protocols?.otp || false,
     },
     {
@@ -157,7 +152,6 @@ export default function Protocols() {
       name: 'NDEF',
       subtitle: 'NFC',
       description: 'NFC data exchange format',
-      icon: '📡',
       supported: protocols?.ndef || false,
     },
   ]
@@ -212,20 +206,9 @@ export default function Protocols() {
             ID: {device.id}
           </p>
           {protocols && (
-            <button 
-              onClick={() => detectProtocols(connectedDeviceId)}
-              disabled={loading}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '12px',
-                border: '1px solid #E0E0E0',
-                background: '#FFFFFF',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                marginTop: '8px'
-              }}
-            >
-              {loading ? 'Detecting...' : 'Re-detect Protocols'}
-            </button>
+            <p style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+              Protocol detection completed automatically
+            </p>
           )}
         </div>
       )}
@@ -234,7 +217,6 @@ export default function Protocols() {
         {protocolList.map((protocol) => (
           <div key={protocol.id} className={`protocol-card ${protocol.supported ? 'supported' : 'unsupported'}`}>
             <div className="protocol-header">
-              <span className="protocol-icon">{protocol.icon}</span>
               <div className="protocol-badge">
                 {connectedDeviceId ? (protocol.supported ? 'Supported' : 'Not Supported') : 'Unknown'}
               </div>

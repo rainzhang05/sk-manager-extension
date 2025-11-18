@@ -91,9 +91,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       <div className="device-list">
         <div className="device-list-header">
           <h2>Connected Device</h2>
-          <button onClick={handleRefresh} className="btn-secondary" disabled>
-            Refresh
-          </button>
         </div>
         <div className="loading-state">
           <div className="spinner"></div>
@@ -108,9 +105,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       <div className="device-list">
         <div className="device-list-header">
           <h2>Connected Device</h2>
-          <button onClick={handleRefresh} className="btn-secondary">
-            Refresh
-          </button>
         </div>
         <div className="error-state">
           <h3>Error</h3>
@@ -128,9 +122,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       <div className="device-list">
         <div className="device-list-header">
           <h2>Connected Device</h2>
-          <button onClick={handleRefresh} className="btn-secondary">
-            Refresh
-          </button>
         </div>
         <div className="empty-state">
           <h3>No Device Detected</h3>
@@ -145,9 +136,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     <div className="device-list">
       <div className="device-list-header">
         <h2>Connected Device</h2>
-        <button onClick={handleRefresh} className="btn-secondary">
-          Refresh
-        </button>
       </div>
       <div className="device-grid">
         <div className="device-card connected">
