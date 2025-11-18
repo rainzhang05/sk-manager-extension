@@ -28,20 +28,33 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     setError(null)
 
     try {
+      console.log('[DeviceList] Starting loadDevices, checking for chromeBridge...')
+      console.log('[DeviceList] window.chromeBridge exists?', !!window.chromeBridge)
+      console.log('[DeviceList] window object keys:', Object.keys(window).filter(k => k.includes('chrome')))
+      
       // Wait for chromeBridge to be available (with timeout)
       let retries = 0
       const maxRetries = 50 // 5 seconds max wait
       while (!window.chromeBridge && retries < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, 100))
         retries++
+        if (retries % 10 === 0) {
+          console.log(`[DeviceList] Waiting for chromeBridge... retry ${retries}/${maxRetries}`)
+        }
       }
+
+      console.log('[DeviceList] After waiting, chromeBridge exists?', !!window.chromeBridge)
+      console.log('[DeviceList] Retries used:', retries)
 
       // Check if chromeBridge exists
       if (!window.chromeBridge) {
+        console.error('[DeviceList] chromeBridge still not available after waiting')
         throw new Error('Chrome extension not connected. Please install the extension.')
       }
 
+      console.log('[DeviceList] Calling listDevices...')
       const response = await window.chromeBridge.send('listDevices')
+      console.log('[DeviceList] Response:', response)
       
       if (response.status === 'ok' && response.result) {
         setDevices(response.result.devices || [])
@@ -253,16 +266,4 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       </div>
     </div>
   )
-}
-
-// Extend Window interface for TypeScript
-declare global {
-  interface Window {
-    chromeBridge: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      send: (command: string, params?: Record<string, unknown>) => Promise<any>
-      isConnected: () => Promise<boolean>
-      getVersion: () => Promise<string>
-    }
-  }
 }
