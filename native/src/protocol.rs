@@ -2,7 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 /// Protocol support information for a device
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[allow(dead_code)] // Will be used in Phase 5
 pub struct ProtocolSupport {
     pub fido2: bool,
     pub u2f: bool,
@@ -10,19 +11,6 @@ pub struct ProtocolSupport {
     pub openpgp: bool,
     pub otp: bool,
     pub ndef: bool,
-}
-
-impl Default for ProtocolSupport {
-    fn default() -> Self {
-        ProtocolSupport {
-            fido2: false,
-            u2f: false,
-            piv: false,
-            openpgp: false,
-            otp: false,
-            ndef: false,
-        }
-    }
 }
 
 /// Detect which protocols a device supports
@@ -36,6 +24,7 @@ impl Default for ProtocolSupport {
 /// # Returns
 /// * `Ok(ProtocolSupport)` - Protocol support information
 /// * `Err` - If the device cannot be accessed
+#[allow(dead_code)] // Will be used in Phase 5
 pub fn detect_protocols(_device_id: &str) -> Result<ProtocolSupport> {
     log::debug!("Protocol detection requested (placeholder implementation)");
     log::info!("Protocol detection not yet implemented - returning all protocols as unsupported");
