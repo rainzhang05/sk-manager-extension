@@ -28,6 +28,14 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     setError(null)
 
     try {
+      // Wait for chromeBridge to be available (with timeout)
+      let retries = 0
+      const maxRetries = 50 // 5 seconds max wait
+      while (!window.chromeBridge && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        retries++
+      }
+
       // Check if chromeBridge exists
       if (!window.chromeBridge) {
         throw new Error('Chrome extension not connected. Please install the extension.')
@@ -50,6 +58,17 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
 
   useEffect(() => {
     loadDevices()
+    
+    // Also listen for the chromeBridgeReady event
+    const handleBridgeReady = () => {
+      loadDevices()
+    }
+    
+    window.addEventListener('chromeBridgeReady', handleBridgeReady)
+    
+    return () => {
+      window.removeEventListener('chromeBridgeReady', handleBridgeReady)
+    }
   }, [])
 
   const handleRefresh = () => {
