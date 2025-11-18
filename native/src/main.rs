@@ -331,6 +331,38 @@ fn handle_transmit_apdu(
     }
 }
 
+/// Handle a detectProtocols command
+fn handle_detect_protocols(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling detectProtocols command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    // Detect protocols for the device
+    match protocol::detect_protocols(device_manager, device_id) {
+        Ok(support) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "protocols": support
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "PROTOCOL_DETECTION_FAILED",
+            &format!("Failed to detect protocols: {}", e),
+        ),
+    }
+}
+
 /// Process a single request
 fn process_request(request: Request, device_manager: &device::DeviceManager) -> Response {
     log::info!(
@@ -348,6 +380,7 @@ fn process_request(request: Request, device_manager: &device::DeviceManager) -> 
         "sendHid" => handle_send_hid(request.id, &request.params, device_manager),
         "receiveHid" => handle_receive_hid(request.id, &request.params, device_manager),
         "transmitApdu" => handle_transmit_apdu(request.id, &request.params, device_manager),
+        "detectProtocols" => handle_detect_protocols(request.id, &request.params, device_manager),
         _ => Response::error(
             request.id,
             "UNKNOWN_COMMAND",
