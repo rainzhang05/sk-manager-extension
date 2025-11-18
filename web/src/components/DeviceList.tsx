@@ -53,11 +53,12 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       }
 
       console.log('[DeviceList] Calling listDevices...')
-      const response = await window.chromeBridge.send('listDevices')
+      const response = await window.chromeBridge!.send('listDevices')
       console.log('[DeviceList] Response:', response)
       
       if (response.status === 'ok' && response.result) {
-        setDevices(response.result.devices || [])
+        const result = response.result as { devices?: Device[] }
+        setDevices(result.devices || [])
       } else {
         throw new Error(response.error?.message || 'Failed to list devices')
       }
@@ -92,7 +93,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   const handleConnect = async (deviceId: string) => {
     try {
       setConnecting(deviceId)
-      const response = await window.chromeBridge.send('openDevice', { deviceId })
+      const response = await window.chromeBridge!.send('openDevice', { deviceId })
       
       if (response.status === 'ok') {
         setConnectedDeviceId(deviceId)
@@ -111,7 +112,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
 
   const handleDisconnect = async (deviceId: string) => {
     try {
-      const response = await window.chromeBridge.send('closeDevice', { deviceId })
+      const response = await window.chromeBridge!.send('closeDevice', { deviceId })
       
       if (response.status === 'ok') {
         setConnectedDeviceId(null)
