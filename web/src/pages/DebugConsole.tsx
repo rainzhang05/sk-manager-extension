@@ -4,7 +4,7 @@ import '../styles/DebugConsole.css'
 export default function DebugConsole() {
   const [connectedDeviceId, setConnectedDeviceId] = useState('')
   const [hidData, setHidData] = useState('')
-  const [apduData, setApduData] = useState('00 A4 04 00')
+  const [apduData, setApduData] = useState('')
   const [timeout, setTimeout] = useState('5000')
   const [response, setResponse] = useState('')
   const [loading, setLoading] = useState(false)

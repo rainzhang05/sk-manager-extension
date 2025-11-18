@@ -28,8 +28,12 @@ export default function Dashboard() {
     
     window.addEventListener('chromeBridgeReady', handleBridgeReady)
     
+    // Set up interval to check connections live every 3 seconds
+    const interval = setInterval(checkConnections, 3000)
+    
     return () => {
       window.removeEventListener('chromeBridgeReady', handleBridgeReady)
+      clearInterval(interval)
     }
   }, [])
 
@@ -102,35 +106,10 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <button onClick={checkConnections} className="btn-secondary" style={{ marginTop: '16px' }}>
-            Recheck Connections
-          </button>
         </div>
 
         <div className="devices-section">
           <DeviceList onRefresh={checkConnections} />
-        </div>
-
-        <div className="quick-actions-section">
-          <h2>Quick Actions</h2>
-          <div className="quick-actions-grid">
-            <a href="/fido2" className="quick-action-card">
-              <h3>FIDO2</h3>
-              <p>Manage authentication credentials</p>
-            </a>
-            <a href="/piv" className="quick-action-card">
-              <h3>PIV</h3>
-              <p>Manage smart card certificates</p>
-            </a>
-            <a href="/otp" className="quick-action-card">
-              <h3>OTP</h3>
-              <p>Configure one-time passwords</p>
-            </a>
-            <a href="/protocols" className="quick-action-card">
-              <h3>Protocols</h3>
-              <p>View supported protocols</p>
-            </a>
-          </div>
         </div>
       </div>
     </div>
