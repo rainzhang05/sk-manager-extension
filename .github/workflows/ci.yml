@@ -23,8 +23,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: web/package-lock.json
     
     - name: Install dependencies
       working-directory: web
@@ -99,7 +97,7 @@ jobs:
       run: cargo test --verbose
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: native-host-${{ matrix.os }}
         path: |
@@ -128,6 +126,9 @@ jobs:
         test -f extension/manifest.json || exit 1
         test -f extension/background/service-worker.js || exit 1
         test -f extension/content/content.js || exit 1
+        test -f extension/icons/icon16.png || exit 1
+        test -f extension/icons/icon48.png || exit 1
+        test -f extension/icons/icon128.png || exit 1
         echo "Extension structure is valid"
 
   all-checks:

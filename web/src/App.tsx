@@ -2,16 +2,66 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './styles/App.css'
 
 // Placeholder pages - will be implemented in later phases
-const Dashboard = () => <div className="page"><h1>Dashboard</h1><p>Device overview and quick actions</p></div>
-const DeviceManager = () => <div className="page"><h1>Device Manager</h1><p>Connect and manage devices</p></div>
-const FIDO2Manager = () => <div className="page"><h1>FIDO2 Manager</h1><p>PIN and credential management</p></div>
-const U2FManager = () => <div className="page"><h1>U2F Manager</h1><p>Legacy U2F support</p></div>
-const PIVManager = () => <div className="page"><h1>PIV Manager</h1><p>Certificate and key management</p></div>
-const OpenPGPManager = () => <div className="page"><h1>OpenPGP Manager</h1><p>OpenPGP card operations</p></div>
-const OTPManager = () => <div className="page"><h1>OTP Manager</h1><p>HOTP configuration</p></div>
-const NDEFManager = () => <div className="page"><h1>NDEF Manager</h1><p>NFC data management</p></div>
-const DebugConsole = () => <div className="page"><h1>Debug Console</h1><p>Raw HID/APDU communication</p></div>
-const Settings = () => <div className="page"><h1>Settings</h1><p>Application settings</p></div>
+const Dashboard = () => (
+  <div className="page">
+    <h1>Dashboard</h1>
+    <p>Device overview, connection status, and quick actions</p>
+  </div>
+)
+
+const FIDO2Manager = () => (
+  <div className="page">
+    <h1>FIDO2 Manager</h1>
+    <p>PIN and credential management, U2F support</p>
+  </div>
+)
+
+const PIVManager = () => (
+  <div className="page">
+    <h1>PIV Manager</h1>
+    <p>Certificate and key management</p>
+  </div>
+)
+
+const OTPManager = () => (
+  <div className="page">
+    <h1>OTP Manager</h1>
+    <p>HOTP configuration</p>
+  </div>
+)
+
+const Protocols = () => (
+  <div className="page">
+    <h1>Protocols</h1>
+    <p>Detect and enable/disable supported protocols</p>
+    <div className="card" style={{ marginTop: '24px' }}>
+      <h2>Protocol Detection</h2>
+      <p style={{ marginBottom: '16px' }}>
+        Connect a Feitian security key to detect supported protocols.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
+          <strong>FIDO2 (CTAP2)</strong> - Modern authentication protocol
+        </div>
+        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
+          <strong>U2F (CTAP1)</strong> - Legacy authentication protocol
+        </div>
+        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
+          <strong>PIV</strong> - Smart card authentication
+        </div>
+        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
+          <strong>OpenPGP</strong> - Email encryption and signing
+        </div>
+        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
+          <strong>OTP</strong> - One-time password generation
+        </div>
+        <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
+          <strong>NDEF</strong> - NFC data exchange
+        </div>
+      </div>
+    </div>
+  </div>
+)
 
 function App() {
   return (
@@ -23,29 +73,19 @@ function App() {
           </div>
           <ul className="nav-menu">
             <li><a href="/">Dashboard</a></li>
-            <li><a href="/device">Device Manager</a></li>
             <li><a href="/fido2">FIDO2</a></li>
-            <li><a href="/u2f">U2F</a></li>
             <li><a href="/piv">PIV</a></li>
-            <li><a href="/openpgp">OpenPGP</a></li>
             <li><a href="/otp">OTP</a></li>
-            <li><a href="/ndef">NDEF</a></li>
-            <li><a href="/debug">Debug Console</a></li>
-            <li><a href="/settings">Settings</a></li>
+            <li><a href="/protocols">Protocols</a></li>
           </ul>
         </nav>
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/device" element={<DeviceManager />} />
             <Route path="/fido2" element={<FIDO2Manager />} />
-            <Route path="/u2f" element={<U2FManager />} />
             <Route path="/piv" element={<PIVManager />} />
-            <Route path="/openpgp" element={<OpenPGPManager />} />
             <Route path="/otp" element={<OTPManager />} />
-            <Route path="/ndef" element={<NDEFManager />} />
-            <Route path="/debug" element={<DebugConsole />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/protocols" element={<Protocols />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
