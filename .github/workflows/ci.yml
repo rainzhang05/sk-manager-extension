@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   web-build:
     name: Build Web UI
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
@@ -42,6 +47,8 @@ jobs:
   native-build:
     name: Build Native Host
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -102,6 +109,8 @@ jobs:
   extension-check:
     name: Check Extension
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
@@ -124,6 +133,8 @@ jobs:
   all-checks:
     name: All Checks Passed
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [web-build, native-build, extension-check]
     
     steps:
