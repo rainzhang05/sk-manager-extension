@@ -1,54 +1,164 @@
+import { useState, useEffect } from 'react'
 import '../styles/Protocols.css'
 
+interface ProtocolSupport {
+  fido2: boolean
+  u2f: boolean
+  piv: boolean
+  openpgp: boolean
+  otp: boolean
+  ndef: boolean
+}
+
+interface Device {
+  id: string
+  vendor_id: number
+  product_id: number
+  device_type: 'Hid' | 'Ccid'
+  manufacturer?: string
+  product_name?: string
+  serial_number?: string
+  path: string
+}
+
 export default function Protocols() {
-  const protocols = [
+  const [device, setDevice] = useState<Device | null>(null)
+  const [connectedDeviceId, setConnectedDeviceId] = useState<string | null>(null)
+  const [protocols, setProtocols] = useState<ProtocolSupport | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Load devices and check for connected device
+  const loadDevices = async () => {
+    try {
+      if (!window.chromeBridge) {
+        return
+      }
+
+      const response = await window.chromeBridge.send('listDevices')
+      if (response.status === 'ok' && response.result) {
+        const result = response.result as { devices: Device[] }
+        if (result.devices.length > 0) {
+          setDevice(result.devices[0])
+        }
+      } else {
+        setDevice(null)
+      }
+    } catch (err) {
+      console.error('Failed to load devices:', err)
+    }
+  }
+
+  // Detect protocols for connected device
+  const detectProtocols = async (deviceId: string) => {
+    if (!window.chromeBridge) {
+      setError('Chrome extension not connected')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      console.log('[Protocols] Detecting protocols for device:', deviceId)
+      const response = await window.chromeBridge.send('detectProtocols', {
+        deviceId: deviceId
+      })
+
+      console.log('[Protocols] Detection response:', response)
+
+      if (response.status === 'ok' && response.result) {
+        const result = response.result as { protocols: ProtocolSupport }
+        setProtocols(result.protocols)
+        console.log('[Protocols] Protocols detected:', result.protocols)
+      } else {
+        setError(response.error?.message || 'Failed to detect protocols')
+      }
+    } catch (err) {
+      console.error('[Protocols] Detection error:', err)
+      setError('Failed to detect protocols: ' + String(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Listen for device connection changes
+  useEffect(() => {
+    const handleDeviceConnected = (event: CustomEvent) => {
+      const deviceId = event.detail.deviceId
+      console.log('[Protocols] Device connected:', deviceId)
+      setConnectedDeviceId(deviceId)
+      // Auto-detect protocols when device connects
+      detectProtocols(deviceId)
+    }
+
+    const handleDeviceDisconnected = () => {
+      console.log('[Protocols] Device disconnected')
+      setConnectedDeviceId(null)
+      setProtocols(null)
+      setError(null)
+    }
+
+    window.addEventListener('device-connected', handleDeviceConnected as EventListener)
+    window.addEventListener('device-disconnected', handleDeviceDisconnected as EventListener)
+
+    // Load devices on mount
+    loadDevices()
+
+    return () => {
+      window.removeEventListener('device-connected', handleDeviceConnected as EventListener)
+      window.removeEventListener('device-disconnected', handleDeviceDisconnected as EventListener)
+    }
+  }, [])
+
+  const protocolList = [
     {
       id: 'fido2',
       name: 'FIDO2',
       subtitle: 'CTAP2',
       description: 'Modern authentication protocol with biometric support',
-      icon: '',
-      supported: false,
+      icon: '🔐',
+      supported: protocols?.fido2 || false,
     },
     {
       id: 'u2f',
       name: 'U2F',
       subtitle: 'CTAP1',
       description: 'Legacy universal second factor authentication',
-      icon: '',
-      supported: false,
+      icon: '🔑',
+      supported: protocols?.u2f || false,
     },
     {
       id: 'piv',
       name: 'PIV',
       subtitle: 'Smart Card',
       description: 'Personal identity verification for secure access',
-      icon: '',
-      supported: false,
+      icon: '💳',
+      supported: protocols?.piv || false,
     },
     {
       id: 'openpgp',
       name: 'OpenPGP',
       subtitle: 'Email Security',
       description: 'Email encryption and digital signatures',
-      icon: '',
-      supported: false,
+      icon: '✉️',
+      supported: protocols?.openpgp || false,
     },
     {
       id: 'otp',
       name: 'OTP',
       subtitle: 'HOTP',
       description: 'One-time password generation',
-      icon: '',
-      supported: false,
+      icon: '🔢',
+      supported: protocols?.otp || false,
     },
     {
       id: 'ndef',
       name: 'NDEF',
       subtitle: 'NFC',
       description: 'NFC data exchange format',
-      icon: '',
-      supported: false,
+      icon: '📡',
+      supported: protocols?.ndef || false,
     },
   ]
 
@@ -57,27 +167,76 @@ export default function Protocols() {
       <div className="page-header">
         <h1>Protocols</h1>
         <p className="page-description">
-          Detect and manage supported protocols on your Feitian security key
+          Detect and view supported protocols on your Feitian security key
         </p>
       </div>
 
-      <div className="protocols-notice">
-        <div>
-          <strong>Connect a device to detect protocols</strong>
-          <p>
-            Protocol detection will be available after connecting a Feitian security key.
-            Toggle switches will allow you to enable/disable supported protocols.
-          </p>
+      {!connectedDeviceId && !loading && (
+        <div className="protocols-notice">
+          <div>
+            <strong>Connect a device to detect protocols</strong>
+            <p>
+              Go to the Dashboard page and connect a Feitian security key.
+              Protocol detection will run automatically.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
+
+      {loading && (
+        <div className="protocols-notice">
+          <div>
+            <strong>Detecting protocols...</strong>
+            <p>Please wait while we probe the device for supported protocols.</p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="protocols-notice" style={{ borderColor: '#EF4444' }}>
+          <div>
+            <strong>Detection Error</strong>
+            <p>{error}</p>
+          </div>
+        </div>
+      )}
+
+      {connectedDeviceId && device && (
+        <div className="protocols-device-info">
+          <h3>Connected Device</h3>
+          <p>
+            <strong>{device.product_name || 'Unknown Device'}</strong>
+            {' • '}
+            Type: {device.device_type}
+            {' • '}
+            ID: {device.id}
+          </p>
+          {protocols && (
+            <button 
+              onClick={() => detectProtocols(connectedDeviceId)}
+              disabled={loading}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '12px',
+                border: '1px solid #E0E0E0',
+                background: '#FFFFFF',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                marginTop: '8px'
+              }}
+            >
+              {loading ? 'Detecting...' : 'Re-detect Protocols'}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="protocols-grid">
-        {protocols.map((protocol) => (
+        {protocolList.map((protocol) => (
           <div key={protocol.id} className={`protocol-card ${protocol.supported ? 'supported' : 'unsupported'}`}>
             <div className="protocol-header">
               <span className="protocol-icon">{protocol.icon}</span>
               <div className="protocol-badge">
-                {protocol.supported ? 'Supported' : 'Not Supported'}
+                {connectedDeviceId ? (protocol.supported ? 'Supported' : 'Not Supported') : 'Unknown'}
               </div>
             </div>
             <div className="protocol-body">
@@ -85,33 +244,30 @@ export default function Protocols() {
               <p className="protocol-subtitle">{protocol.subtitle}</p>
               <p className="protocol-description">{protocol.description}</p>
             </div>
-            <div className="protocol-footer">
-              <label className="toggle-switch" title="Connect a device first">
-                <input type="checkbox" disabled={true} />
-                <span className="toggle-slider"></span>
-              </label>
-              <span className="toggle-label">
-                {protocol.supported ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
           </div>
         ))}
       </div>
 
-      <div className="protocols-help">
-        <h3>About Protocol Detection</h3>
-        <p>
-          Actual protocol detection will be implemented in Phase 5. The system will:
-        </p>
-        <ul>
-          <li><strong>FIDO2:</strong> Try CTAP2 getInfo command</li>
-          <li><strong>U2F:</strong> Try CTAP1 version command</li>
-          <li><strong>PIV:</strong> Try PIV SELECT APDU</li>
-          <li><strong>OpenPGP:</strong> Try OpenPGP SELECT APDU</li>
-          <li><strong>OTP:</strong> Try OTP vendor command</li>
-          <li><strong>NDEF:</strong> Try NDEF read command</li>
-        </ul>
-      </div>
+      {connectedDeviceId && protocols && (
+        <div className="protocols-help">
+          <h3>Protocol Detection Details</h3>
+          <p>
+            Protocol detection is performed using the following methods:
+          </p>
+          <ul>
+            <li><strong>FIDO2:</strong> CTAP2 getInfo command via HID</li>
+            <li><strong>U2F:</strong> CTAP1 version command via HID</li>
+            <li><strong>PIV:</strong> SELECT APDU (A0 00 00 03 08) via CCID</li>
+            <li><strong>OpenPGP:</strong> SELECT APDU (D2 76 00 01 24 01) via CCID</li>
+            <li><strong>OTP:</strong> Vendor-specific command via HID</li>
+            <li><strong>NDEF:</strong> SELECT APDU (D2 76 00 00 85 01 01) via CCID</li>
+          </ul>
+          <p style={{ marginTop: '16px', fontSize: '14px', color: '#666' }}>
+            Note: Some protocols may not be detected if the device doesn't support
+            the detection method (e.g., CCID-only protocols on HID-only devices).
+          </p>
+        </div>
+      )}
     </div>
   )
 }
