@@ -1,9 +1,9 @@
 # AGENTS.md — Feitian SK Manager
 ## Autonomous Development Roadmap
 
-**Version**: 3.1  
+**Version**: 3.2  
 **Last Updated**: November 18, 2025  
-**Project Status**: Phase 2 Complete - Ready for Phase 3
+**Project Status**: Phase 3 Complete - Ready for Phase 4
 
 ---
 
@@ -14,14 +14,14 @@
 - [x] **Phase 0**: Repository Foundation & Setup
 - [x] **Phase 1**: Device Enumeration (HID + CCID)
 - [x] **Phase 2**: Device Connection & Transport Layer
+- [x] **Phase 3**: Protocol Detection Implementation
 
 ### 🎯 Current Phase
 
-- [ ] **Phase 3**: Protocol Detection Implementation (NEXT)
+- [ ] **Phase 4**: FIDO2 Implementation (NEXT)
 
 ### 📋 Remaining Phases
 
-- [ ] Phase 4: FIDO2 Implementation
 - [ ] Phase 5: PIV Implementation  
 - [ ] Phase 6: OTP Implementation
 - [ ] Phase 7-9: U2F, OpenPGP, NDEF
@@ -279,59 +279,98 @@ Implemented device connection management and raw transport layer (HID packets an
 
 ---
 
-## 🚀 PHASE 3: Protocol Detection Implementation
+## ✅ PHASE 3: Protocol Detection Implementation (COMPLETED)
 
-**Status**: 🎯 CURRENT PHASE  
-**Prerequisites**: Phase 0, 1 & 2 complete
+**Status**: ✅ Complete  
+**Completion Date**: November 18, 2025
 
 ### Overview
-Implement protocol detection for CTAP2, U2F, PIV, OpenPGP, OTP, and NDEF. Update Protocols page to display real detection results instead of placeholder data.
+Implemented protocol detection for CTAP2/FIDO2, U2F/CTAP1, PIV, OpenPGP, OTP, and NDEF. Updated Protocols page to display real detection results with automatic detection on device connection.
 
-### Current State Analysis
-Phase 2 implementation is complete. All device connection and transport functionality is working.
+### What Was Built
+- Protocol detection functions in protocol.rs
+  - FIDO2/CTAP2: CTAP2 getInfo command via HID
+  - U2F/CTAP1: U2F version command via HID
+  - PIV: SELECT APDU (A0 00 00 03 08) via CCID
+  - OpenPGP: SELECT APDU (D2 76 00 01 24 01) via CCID
+  - OTP: Vendor-specific command via HID
+  - NDEF: SELECT APDU (D2 76 00 00 85 01 01) via CCID
+- `detectProtocols` RPC command in main.rs
+- Updated Protocols page with:
+  - Device connection detection
+  - Auto-detection on device connect
+  - Visual protocol support indicators
+  - Re-detect button
+  - Protocol icons (🔐 🔑 💳 ✉️ 🔢 📡)
+  - Detailed detection method documentation
+
+### Verification Checklist
+- [x] Protocol detection implemented for all 6 protocols
+- [x] detectProtocols RPC command works
+- [x] Protocols page listens for device-connected events
+- [x] Auto-detection triggers on connection
+- [x] Protocol cards show correct support status
+- [x] Re-detect button works
+- [x] All 15 tests pass
+- [x] Web UI builds without errors
+- [x] Native host builds without warnings
+
+### Files Created/Modified
+**Native Host:**
+- `/native/src/protocol.rs` - Added 6 detection functions (220+ lines added)
+- `/native/src/main.rs` - Added detectProtocols RPC handler (30 lines added)
+
+**Frontend:**
+- `/web/src/pages/Protocols.tsx` - Complete rewrite with real detection (280 lines)
+- `/web/src/styles/Protocols.css` - Removed toggle switches, added device info styling (50 lines modified)
 
 ---
 
-## 🚀 PHASE 3: Protocol Detection Implementation
+## 🚀 PHASE 4: FIDO2 Implementation
 
 **Status**: 🎯 CURRENT PHASE  
-**Prerequisites**: Phase 0, 1 & 2 complete
+**Prerequisites**: Phase 0, 1, 2 & 3 complete
 
 ### Overview
-Implement protocol detection for CTAP2, U2F, PIV, OpenPGP, OTP, and NDEF. Update Protocols page to display real detection results instead of placeholder data.
+Implement FIDO2/CTAP2 management features including PIN management, credential enumeration, and device reset. This phase builds on the protocol detection to provide full FIDO2 functionality.
 
 ### Current State Analysis
 Before starting, verify:
-1. Device connection works (can open/close devices)
-2. HID and APDU transport work correctly  
-3. protocol.rs exists with placeholder detection
+1. Protocol detection works (Phase 3 complete)
+2. FIDO2 detection returns true for FIDO2-capable devices
+3. Device connection and transport layers work correctly
 
-### Tasks for Phase 3
+### Tasks for Phase 4
 
-#### TASK 3.1: Implement Protocol Detection Logic
-Update `/native/src/protocol.rs` to detect each protocol:
-- FIDO2/CTAP2: Send CTAP2 getInfo command
-- U2F/CTAP1: Send U2F version command
-- PIV: Try PIV SELECT APDU (A0 00 00 03 08)
-- OpenPGP: Try OpenPGP SELECT APDU
-- OTP: Try vendor-specific OTP command
-- NDEF: Try NDEF read command
+#### TASK 4.1: Implement FIDO2/CTAP2 Commands
+Add functions in a new `fido2.rs` file:
+- PIN management (set, change, get retries)
+- Credential enumeration (list credentials)
+- Credential deletion (delete by credential ID)
+- Device reset (with confirmation)
+- Get device info (extended from detection)
 
-#### TASK 3.2: Add detectProtocols RPC Command
-Add handler in main.rs that:
-- Takes deviceId parameter
-- Calls detect_protocols from protocol.rs
-- Returns ProtocolSupport structure
+#### TASK 4.2: Add FIDO2 RPC Commands
+Add handlers in main.rs:
+- `fido2SetPin` - Set initial PIN
+- `fido2ChangePin` - Change existing PIN
+- `fido2GetPinRetries` - Get PIN retry counter
+- `fido2ListCredentials` - List all credentials
+- `fido2DeleteCredential` - Delete a credential
+- `fido2ResetDevice` - Factory reset device
+- `fido2GetInfo` - Get detailed device info
 
-#### TASK 3.3: Update Protocols Page UI
-Update `/web/src/pages/Protocols.tsx` to:
-- Call detectProtocols RPC when device is selected
-- Display real protocol support data
-- Show protocol details and capabilities
+#### TASK 4.3: Update FIDO2 Page UI
+Update `/web/src/pages/FIDO2.tsx` to:
+- Display device info when FIDO2 is detected
+- Show PIN management UI
+- Display credential list with delete buttons
+- Add device reset with confirmation dialog
+- Show error messages and loading states
 
 ---
 
-## 🚀 REMAINING PHASES (4-13)
+## 🚀 REMAINING PHASES (5-13)
 
 Due to file length, detailed instructions for remaining phases follow the same comprehensive pattern:
 
@@ -446,17 +485,18 @@ Due to file length, detailed instructions for remaining phases follow the same c
 - [x] Phase 0: Repository Foundation
 - [x] Phase 1: Device Enumeration
 - [x] Phase 2: Device Connection & Transport Layer
+- [x] Phase 3: Protocol Detection Implementation
 
 ### In Progress
-- [ ] Phase 3: Protocol Detection (CURRENT)
+- [ ] Phase 4: FIDO2 Implementation (CURRENT)
 
 ### Remaining
-- [ ] Phases 4-13
+- [ ] Phases 5-13
 
 ---
 
 **END OF AGENTS.MD**
 
-**Version**: 3.1  
+**Version**: 3.2  
 **Last Updated**: November 18, 2025  
-**Status**: Phase 2 Complete, Phase 3 Ready
+**Status**: Phase 3 Complete, Phase 4 Ready
