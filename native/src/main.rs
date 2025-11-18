@@ -628,12 +628,20 @@ fn process_request(request: Request, device_manager: &device::DeviceManager) -> 
         "transmitApdu" => handle_transmit_apdu(request.id, &request.params, device_manager),
         "detectProtocols" => handle_detect_protocols(request.id, &request.params, device_manager),
         "fido2GetInfo" => handle_fido2_get_info(request.id, &request.params, device_manager),
-        "fido2GetPinRetries" => handle_fido2_get_pin_retries(request.id, &request.params, device_manager),
+        "fido2GetPinRetries" => {
+            handle_fido2_get_pin_retries(request.id, &request.params, device_manager)
+        }
         "fido2SetPin" => handle_fido2_set_pin(request.id, &request.params, device_manager),
         "fido2ChangePin" => handle_fido2_change_pin(request.id, &request.params, device_manager),
-        "fido2ListCredentials" => handle_fido2_list_credentials(request.id, &request.params, device_manager),
-        "fido2DeleteCredential" => handle_fido2_delete_credential(request.id, &request.params, device_manager),
-        "fido2ResetDevice" => handle_fido2_reset_device(request.id, &request.params, device_manager),
+        "fido2ListCredentials" => {
+            handle_fido2_list_credentials(request.id, &request.params, device_manager)
+        }
+        "fido2DeleteCredential" => {
+            handle_fido2_delete_credential(request.id, &request.params, device_manager)
+        }
+        "fido2ResetDevice" => {
+            handle_fido2_reset_device(request.id, &request.params, device_manager)
+        }
         _ => Response::error(
             request.id,
             "UNKNOWN_COMMAND",

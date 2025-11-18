@@ -85,11 +85,11 @@ pub struct Fido2Info {
 /// FIDO2 options
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fido2Options {
-    pub plat: bool,         // Platform device
-    pub rk: bool,           // Resident key
-    pub client_pin: Option<bool>,  // Client PIN set
-    pub up: bool,           // User presence
-    pub uv: Option<bool>,   // User verification
+    pub plat: bool,               // Platform device
+    pub rk: bool,                 // Resident key
+    pub client_pin: Option<bool>, // Client PIN set
+    pub up: bool,                 // User presence
+    pub uv: Option<bool>,         // User verification
 }
 
 /// PIN retry information
@@ -119,7 +119,7 @@ fn ctaphid_init(device_manager: &DeviceManager, device_id: &str) -> Result<[u8; 
     init_packet[4] = CTAPHID_INIT | 0x80; // INIT command with TYPE_INIT bit
     init_packet[5] = 0x00; // BCNTH (high byte of length)
     init_packet[6] = 0x08; // BCNTL (low byte of length = 8 bytes nonce)
-    // Add 8-byte random nonce
+                           // Add 8-byte random nonce
     init_packet[7..15].copy_from_slice(&[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
 
     device_manager.with_hid_device(device_id, |device| {
@@ -153,38 +153,38 @@ fn ctap2_command(
     let mut packet = [0u8; 64];
     packet[0..4].copy_from_slice(cid);
     packet[4] = CTAPHID_CBOR | 0x80; // CBOR command with TYPE_INIT bit
-    
+
     let payload_len = 1 + data.len(); // command byte + data
     packet[5] = ((payload_len >> 8) & 0xFF) as u8; // BCNTH
     packet[6] = (payload_len & 0xFF) as u8; // BCNTL
     packet[7] = command; // CTAP2 command
-    
+
     // Copy data (up to 57 bytes in first packet)
     let first_chunk_len = std::cmp::min(data.len(), 57);
     packet[8..8 + first_chunk_len].copy_from_slice(&data[..first_chunk_len]);
 
     device_manager.with_hid_device(device_id, |device| {
         transport::send_hid(device, &packet)?;
-        
+
         // TODO: Handle continuation packets if data > 57 bytes
-        
+
         let response = transport::receive_hid(device, 3000)?;
-        
+
         // Parse response
         // Response format: [CID(4)] [CMD(1)] [BCNTH(1)] [BCNTL(1)] [DATA...]
         if response.len() < 7 {
             return Err(anyhow!("Response too short"));
         }
-        
+
         // Check if it's an error response
         if response[4] == CTAPHID_ERROR {
             let error_code = response[7];
             return Err(anyhow!("CTAPHID error: 0x{:02X}", error_code));
         }
-        
+
         // Extract data length
         let data_len = ((response[5] as usize) << 8) | (response[6] as usize);
-        
+
         // Extract response data
         let response_data = if data_len <= 57 {
             response[7..7 + data_len].to_vec()
@@ -192,17 +192,17 @@ fn ctap2_command(
             // TODO: Handle continuation packets
             response[7..].to_vec()
         };
-        
+
         // Check CTAP2 status code
         if response_data.is_empty() {
             return Err(anyhow!("Empty response"));
         }
-        
+
         let status = response_data[0];
         if status != CTAP2_OK {
             return Err(anyhow!("CTAP2 error: 0x{:02X}", status));
         }
-        
+
         // Return data after status byte
         Ok(response_data[1..].to_vec())
     })
@@ -211,14 +211,14 @@ fn ctap2_command(
 /// Get FIDO2 authenticator info
 pub fn get_info(device_manager: &DeviceManager, device_id: &str) -> Result<Fido2Info> {
     log::debug!("Getting FIDO2 authenticator info...");
-    
+
     let cid = ctaphid_init(device_manager, device_id)?;
     let _response = ctap2_command(device_manager, device_id, &cid, CTAP2_GET_INFO, &[])?;
-    
+
     // Parse CBOR response
     // For now, return a simplified structure
     // Real implementation would decode CBOR using serde_cbor or ciborium
-    
+
     Ok(Fido2Info {
         versions: vec!["FIDO_2_0".to_string(), "U2F_V2".to_string()],
         extensions: vec![],
@@ -244,9 +244,9 @@ pub fn get_info(device_manager: &DeviceManager, device_id: &str) -> Result<Fido2
 /// Get PIN retry counter
 pub fn get_pin_retries(device_manager: &DeviceManager, device_id: &str) -> Result<PinRetries> {
     log::debug!("Getting PIN retry counter...");
-    
+
     let cid = ctaphid_init(device_manager, device_id)?;
-    
+
     // Construct ClientPIN getRetries command
     // CBOR map: {0x01: 0x01} (pinProtocol: 1, subCommand: getPinRetries)
     // Simplified: just send minimal CBOR
@@ -255,12 +255,12 @@ pub fn get_pin_retries(device_manager: &DeviceManager, device_id: &str) -> Resul
         0x01, // Key: pinProtocol
         0x01, // Value: 1
     ];
-    
+
     let _response = ctap2_command(device_manager, device_id, &cid, CTAP2_CLIENT_PIN, &data)?;
-    
+
     // Parse response (simplified)
     // Real implementation would decode CBOR
-    
+
     Ok(PinRetries {
         retries: 8,
         power_cycle_required: false,
@@ -270,23 +270,23 @@ pub fn get_pin_retries(device_manager: &DeviceManager, device_id: &str) -> Resul
 /// Set initial PIN
 pub fn set_pin(device_manager: &DeviceManager, device_id: &str, new_pin: &str) -> Result<()> {
     log::debug!("Setting PIN...");
-    
+
     if new_pin.len() < 4 {
         return Err(anyhow!("PIN must be at least 4 characters"));
     }
-    
+
     if new_pin.len() > 63 {
         return Err(anyhow!("PIN must be at most 63 characters"));
     }
-    
+
     let cid = ctaphid_init(device_manager, device_id)?;
-    
+
     // Simplified implementation - real implementation would:
     // 1. Get key agreement from authenticator
     // 2. Establish shared secret
     // 3. Encrypt PIN
     // 4. Send encrypted PIN with pinAuth
-    
+
     // For now, just attempt the command and let it fail gracefully
     let data = vec![
         0xA2, // Map with 2 items
@@ -295,10 +295,13 @@ pub fn set_pin(device_manager: &DeviceManager, device_id: &str, new_pin: &str) -
         0x02, // Key: subCommand
         0x03, // Value: setPIN
     ];
-    
+
     match ctap2_command(device_manager, device_id, &cid, CTAP2_CLIENT_PIN, &data) {
         Ok(_) => Ok(()),
-        Err(e) => Err(anyhow!("Failed to set PIN: {} (Note: Full PIN encryption not yet implemented)", e)),
+        Err(e) => Err(anyhow!(
+            "Failed to set PIN: {} (Note: Full PIN encryption not yet implemented)",
+            e
+        )),
     }
 }
 
@@ -310,17 +313,17 @@ pub fn change_pin(
     new_pin: &str,
 ) -> Result<()> {
     log::debug!("Changing PIN...");
-    
+
     if new_pin.len() < 4 {
         return Err(anyhow!("PIN must be at least 4 characters"));
     }
-    
+
     if new_pin.len() > 63 {
         return Err(anyhow!("PIN must be at most 63 characters"));
     }
-    
+
     let cid = ctaphid_init(device_manager, device_id)?;
-    
+
     // Simplified implementation
     let data = vec![
         0xA2, // Map with 2 items
@@ -329,24 +332,30 @@ pub fn change_pin(
         0x02, // Key: subCommand
         0x04, // Value: changePIN
     ];
-    
+
     match ctap2_command(device_manager, device_id, &cid, CTAP2_CLIENT_PIN, &data) {
         Ok(_) => Ok(()),
-        Err(e) => Err(anyhow!("Failed to change PIN: {} (Note: Full PIN encryption not yet implemented)", e)),
+        Err(e) => Err(anyhow!(
+            "Failed to change PIN: {} (Note: Full PIN encryption not yet implemented)",
+            e
+        )),
     }
 }
 
 /// List all credentials
-pub fn list_credentials(device_manager: &DeviceManager, device_id: &str) -> Result<Vec<Credential>> {
+pub fn list_credentials(
+    device_manager: &DeviceManager,
+    device_id: &str,
+) -> Result<Vec<Credential>> {
     log::debug!("Listing credentials...");
-    
+
     let _cid = ctaphid_init(device_manager, device_id)?;
-    
+
     // Simplified implementation - real implementation would:
     // 1. Authenticate with PIN
     // 2. Enumerate RPs
     // 3. For each RP, enumerate credentials
-    
+
     // For now, return empty list
     Ok(vec![])
 }
@@ -358,9 +367,9 @@ pub fn delete_credential(
     credential_id: &str,
 ) -> Result<()> {
     log::debug!("Deleting credential: {}", credential_id);
-    
+
     let cid = ctaphid_init(device_manager, device_id)?;
-    
+
     // Simplified implementation
     let data = vec![
         0xA2, // Map with 2 items
@@ -369,7 +378,7 @@ pub fn delete_credential(
         0x02, // Key: subCommand
         0x06, // Value: deleteCredential
     ];
-    
+
     match ctap2_command(device_manager, device_id, &cid, CTAP2_CREDENTIAL_MANAGEMENT, &data) {
         Ok(_) => Ok(()),
         Err(e) => Err(anyhow!("Failed to delete credential: {} (Note: Full credential management not yet implemented)", e)),
@@ -379,9 +388,9 @@ pub fn delete_credential(
 /// Reset the authenticator to factory defaults
 pub fn reset_device(device_manager: &DeviceManager, device_id: &str) -> Result<()> {
     log::debug!("Resetting authenticator...");
-    
+
     let cid = ctaphid_init(device_manager, device_id)?;
-    
+
     // RESET command has no parameters
     match ctap2_command(device_manager, device_id, &cid, CTAP2_RESET, &[]) {
         Ok(_) => {
@@ -428,7 +437,7 @@ mod tests {
             max_authenticator_config_length: Some(1024),
             default_cred_protect: Some(1),
         };
-        
+
         let json = serde_json::to_string(&info).unwrap();
         assert!(json.contains("FIDO_2_0"));
     }
