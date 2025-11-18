@@ -238,6 +238,183 @@ pub fn list_devices() -> Result<Vec<Device>> {
     Ok(all_devices)
 }
 
+/// Open device enum - represents an open HID or CCID device
+pub enum OpenDevice {
+    Hid(hidapi::HidDevice),
+    Ccid(pcsc::Card),
+}
+
+/// Device manager with connection tracking
+pub struct DeviceManager {
+    hid_api: std::sync::Arc<std::sync::Mutex<hidapi::HidApi>>,
+    pcsc_context: std::sync::Arc<std::sync::Mutex<pcsc::Context>>,
+    open_devices: std::sync::Arc<std::sync::Mutex<HashMap<String, OpenDevice>>>,
+}
+
+impl DeviceManager {
+    /// Create a new device manager
+    pub fn new() -> Result<Self> {
+        let hid_api = hidapi::HidApi::new().context("Failed to initialize HID API")?;
+        let pcsc_context = pcsc::Context::establish(pcsc::Scope::User)
+            .context("Failed to establish PC/SC context")?;
+
+        Ok(Self {
+            hid_api: std::sync::Arc::new(std::sync::Mutex::new(hid_api)),
+            pcsc_context: std::sync::Arc::new(std::sync::Mutex::new(pcsc_context)),
+            open_devices: std::sync::Arc::new(std::sync::Mutex::new(HashMap::new())),
+        })
+    }
+
+    /// Open a device by its ID
+    pub fn open_device(&self, device_id: &str) -> Result<()> {
+        let mut open_devices = self.open_devices.lock().unwrap();
+
+        // Check if device is already open
+        if open_devices.contains_key(device_id) {
+            return Err(anyhow::anyhow!("Device {} is already open", device_id));
+        }
+
+        // Get all devices
+        let all_devices = list_devices()?;
+        let device = all_devices
+            .iter()
+            .find(|d| d.id == device_id)
+            .ok_or_else(|| anyhow::anyhow!("Device {} not found", device_id))?;
+
+        log::info!(
+            "Opening device: {} ({:?})",
+            device_id,
+            device.device_type
+        );
+
+        // Open based on device type
+        match device.device_type {
+            DeviceType::Hid => {
+                let hid_api = self.hid_api.lock().unwrap();
+                let hid_device = hid_api
+                    .open_path(&std::ffi::CString::new(device.path.as_bytes())?)
+                    .context(format!("Failed to open HID device at {}", device.path))?;
+
+                open_devices.insert(device_id.to_string(), OpenDevice::Hid(hid_device));
+                log::info!("Successfully opened HID device: {}", device_id);
+            }
+            DeviceType::Ccid => {
+                let pcsc_context = self.pcsc_context.lock().unwrap();
+                let reader_name =
+                    std::ffi::CString::new(device.path.as_bytes()).context("Invalid reader name")?;
+
+                let card = pcsc_context
+                    .connect(&reader_name, pcsc::ShareMode::Shared, pcsc::Protocols::ANY)
+                    .context(format!("Failed to connect to CCID card at {}", device.path))?;
+
+                open_devices.insert(device_id.to_string(), OpenDevice::Ccid(card));
+                log::info!("Successfully opened CCID card: {}", device_id);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Close a device by its ID
+    pub fn close_device(&self, device_id: &str) -> Result<()> {
+        let mut open_devices = self.open_devices.lock().unwrap();
+
+        if !open_devices.contains_key(device_id) {
+            return Err(anyhow::anyhow!("Device {} is not open", device_id));
+        }
+
+        log::info!("Closing device: {}", device_id);
+        open_devices.remove(device_id);
+        log::info!("Successfully closed device: {}", device_id);
+
+        Ok(())
+    }
+
+    /// Check if a device is open
+    pub fn is_open(&self, device_id: &str) -> bool {
+        let open_devices = self.open_devices.lock().unwrap();
+        open_devices.contains_key(device_id)
+    }
+
+    /// Get a reference to an open HID device
+    pub fn get_hid_device(&self, device_id: &str) -> Result<std::sync::MutexGuard<hidapi::HidDevice>> {
+        let open_devices = self.open_devices.lock().unwrap();
+        
+        match open_devices.get(device_id) {
+            Some(OpenDevice::Hid(_)) => {
+                // Drop the lock before we return a new one
+                drop(open_devices);
+                
+                // This is a bit tricky - we need to return a reference to the HidDevice
+                // but we can't hold the lock on open_devices while doing so
+                // For now, we'll return an error and handle this differently
+                Err(anyhow::anyhow!("HID device access requires refactoring - see transport.rs"))
+            }
+            Some(OpenDevice::Ccid(_)) => {
+                Err(anyhow::anyhow!("Device {} is a CCID device, not HID", device_id))
+            }
+            None => {
+                Err(anyhow::anyhow!("Device {} is not open", device_id))
+            }
+        }
+    }
+
+    /// Get a reference to an open CCID card
+    pub fn get_ccid_card(&self, device_id: &str) -> Result<std::sync::MutexGuard<pcsc::Card>> {
+        let open_devices = self.open_devices.lock().unwrap();
+        
+        match open_devices.get(device_id) {
+            Some(OpenDevice::Ccid(_)) => {
+                // Same issue as get_hid_device
+                drop(open_devices);
+                Err(anyhow::anyhow!("CCID card access requires refactoring - see transport.rs"))
+            }
+            Some(OpenDevice::Hid(_)) => {
+                Err(anyhow::anyhow!("Device {} is a HID device, not CCID", device_id))
+            }
+            None => {
+                Err(anyhow::anyhow!("Device {} is not open", device_id))
+            }
+        }
+    }
+
+    /// Execute an operation with a HID device
+    pub fn with_hid_device<F, R>(&self, device_id: &str, f: F) -> Result<R>
+    where
+        F: FnOnce(&hidapi::HidDevice) -> Result<R>,
+    {
+        let open_devices = self.open_devices.lock().unwrap();
+        
+        match open_devices.get(device_id) {
+            Some(OpenDevice::Hid(device)) => f(device),
+            Some(OpenDevice::Ccid(_)) => {
+                Err(anyhow::anyhow!("Device {} is a CCID device, not HID", device_id))
+            }
+            None => {
+                Err(anyhow::anyhow!("Device {} is not open", device_id))
+            }
+        }
+    }
+
+    /// Execute an operation with a CCID card
+    pub fn with_ccid_card<F, R>(&self, device_id: &str, f: F) -> Result<R>
+    where
+        F: FnOnce(&pcsc::Card) -> Result<R>,
+    {
+        let open_devices = self.open_devices.lock().unwrap();
+        
+        match open_devices.get(device_id) {
+            Some(OpenDevice::Ccid(card)) => f(card),
+            Some(OpenDevice::Hid(_)) => {
+                Err(anyhow::anyhow!("Device {} is a HID device, not CCID", device_id))
+            }
+            None => {
+                Err(anyhow::anyhow!("Device {} is not open", device_id))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
