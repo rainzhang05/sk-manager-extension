@@ -15,7 +15,7 @@ export default function Protocols() {
       name: 'U2F',
       subtitle: 'CTAP1',
       description: 'Legacy universal second factor authentication',
-      icon: '🔐',
+      icon: '',
       supported: false,
     },
     {
@@ -31,7 +31,7 @@ export default function Protocols() {
       name: 'OpenPGP',
       subtitle: 'Email Security',
       description: 'Email encryption and digital signatures',
-      icon: '📧',
+      icon: '',
       supported: false,
     },
     {
@@ -47,7 +47,7 @@ export default function Protocols() {
       name: 'NDEF',
       subtitle: 'NFC',
       description: 'NFC data exchange format',
-      icon: '📡',
+      icon: '',
       supported: false,
     },
   ]
@@ -62,7 +62,6 @@ export default function Protocols() {
       </div>
 
       <div className="protocols-notice">
-        <span className="notice-icon">ℹ️</span>
         <div>
           <strong>Connect a device to detect protocols</strong>
           <p>
