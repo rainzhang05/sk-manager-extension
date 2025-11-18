@@ -326,59 +326,6 @@ impl DeviceManager {
         Ok(())
     }
 
-    /// Check if a device is open
-    pub fn is_open(&self, device_id: &str) -> bool {
-        let open_devices = self.open_devices.lock().unwrap();
-        open_devices.contains_key(device_id)
-    }
-
-    /// Get a reference to an open HID device
-    pub fn get_hid_device(
-        &self,
-        device_id: &str,
-    ) -> Result<std::sync::MutexGuard<hidapi::HidDevice>> {
-        let open_devices = self.open_devices.lock().unwrap();
-
-        match open_devices.get(device_id) {
-            Some(OpenDevice::Hid(_)) => {
-                // Drop the lock before we return a new one
-                drop(open_devices);
-
-                // This is a bit tricky - we need to return a reference to the HidDevice
-                // but we can't hold the lock on open_devices while doing so
-                // For now, we'll return an error and handle this differently
-                Err(anyhow::anyhow!(
-                    "HID device access requires refactoring - see transport.rs"
-                ))
-            }
-            Some(OpenDevice::Ccid(_)) => Err(anyhow::anyhow!(
-                "Device {} is a CCID device, not HID",
-                device_id
-            )),
-            None => Err(anyhow::anyhow!("Device {} is not open", device_id)),
-        }
-    }
-
-    /// Get a reference to an open CCID card
-    pub fn get_ccid_card(&self, device_id: &str) -> Result<std::sync::MutexGuard<pcsc::Card>> {
-        let open_devices = self.open_devices.lock().unwrap();
-
-        match open_devices.get(device_id) {
-            Some(OpenDevice::Ccid(_)) => {
-                // Same issue as get_hid_device
-                drop(open_devices);
-                Err(anyhow::anyhow!(
-                    "CCID card access requires refactoring - see transport.rs"
-                ))
-            }
-            Some(OpenDevice::Hid(_)) => Err(anyhow::anyhow!(
-                "Device {} is a HID device, not CCID",
-                device_id
-            )),
-            None => Err(anyhow::anyhow!("Device {} is not open", device_id)),
-        }
-    }
-
     /// Execute an operation with a HID device
     pub fn with_hid_device<F, R>(&self, device_id: &str, f: F) -> Result<R>
     where
