@@ -1,0 +1,1 @@
+# sk-manager-extension
