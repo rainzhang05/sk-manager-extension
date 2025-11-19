@@ -1,6 +1,6 @@
 use aes::Aes256;
 use anyhow::{anyhow, Result};
-use cbc::cipher::{block_padding::NoPadding, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+use cbc::cipher::{block_padding::NoPadding, KeyIvInit};
 use cbc::{Decryptor, Encryptor};
 use ciborium::Value as CborValue;
 use hmac::{Hmac, Mac};
@@ -9,6 +9,7 @@ use p256::{ecdh::EphemeralSecret, PublicKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::vec::Vec as StdVec;
 
 use crate::device::DeviceManager;
 use crate::transport;
@@ -704,7 +705,7 @@ fn encrypt_pin(pin: &str, shared_secret: &[u8]) -> Result<Vec<u8>> {
 
     // The data is already 64 bytes which is a multiple of 16, so no padding needed
     let ciphertext = cipher
-        .encrypt_padded_vec_mut::<NoPadding>(&pin_bytes)
+        .encrypt_padded_vec::<NoPadding>(&pin_bytes)
         .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
 
     Ok(ciphertext)
@@ -840,7 +841,7 @@ pub fn change_pin(
         let iv = [0u8; 16];
         let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
         cipher
-            .encrypt_padded_vec_mut::<NoPadding>(&padded)
+            .encrypt_padded_vec::<NoPadding>(&padded)
             .map_err(|e| anyhow!("Encryption failed: {:?}", e))?
     };
 
@@ -928,7 +929,7 @@ fn get_pin_token(
     let iv = [0u8; 16];
     let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
     let encrypted_pin_hash = cipher
-        .encrypt_padded_vec_mut::<NoPadding>(&padded)
+        .encrypt_padded_vec::<NoPadding>(&padded)
         .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
 
     // Step 5: Build COSE_Key
@@ -989,15 +990,15 @@ fn get_pin_token(
             let key_int: i128 = i.into();
             if key_int == 0x02 {
                 // pinToken
-                if let CborValue::Bytes(mut encrypted_token) = value {
+                if let CborValue::Bytes(encrypted_token) = value {
                     // Decrypt PIN token
                     let key = &shared_secret[0..32];
                     let iv = [0u8; 16];
                     let cipher = Aes256CbcDec::new(key.into(), &iv.into());
                     let decrypted = cipher
-                        .decrypt_padded_vec_mut::<NoPadding>(&mut encrypted_token)
+                        .decrypt_padded_vec::<NoPadding>(&encrypted_token)
                         .map_err(|e| anyhow!("Decryption failed: {:?}", e))?;
-                    return Ok(decrypted.to_vec());
+                    return Ok(decrypted);
                 }
             }
         }
@@ -1252,7 +1253,7 @@ fn enumerate_next_credential(
 
 /// Parse credential from CBOR map
 fn parse_credential(
-    map: &BTreeMap<CborValue, CborValue>,
+    map: &[(CborValue, CborValue)],
     rp_id: &str,
     rp_name: &str,
 ) -> Result<Credential> {
@@ -1265,7 +1266,7 @@ fn parse_credential(
 
     for (key, value) in map {
         if let CborValue::Integer(i) = key {
-            let key_int: i128 = (*i).into();
+            let key_int: i128 = i.into();
             match key_int {
                 0x06 => {
                     // user
@@ -1274,13 +1275,15 @@ fn parse_credential(
                             if let CborValue::Text(field) = user_key {
                                 match field.as_str() {
                                     "id" => {
-                                        user_id = hex::encode(match user_value {
-                                            CborValue::Bytes(b) => b,
-                                            _ => &[],
-                                        })
+                                        user_id = match user_value {
+                                            CborValue::Bytes(b) => hex::encode(b),
+                                            _ => String::new(),
+                                        }
                                     }
-                                    "name" => user_name = cbor_to_string(user_value),
-                                    "displayName" => user_display_name = cbor_to_string(user_value),
+                                    "name" => user_name = cbor_to_string(&user_value),
+                                    "displayName" => {
+                                        user_display_name = cbor_to_string(&user_value)
+                                    }
                                     _ => {}
                                 }
                             }
@@ -1293,10 +1296,10 @@ fn parse_credential(
                         for (cred_key, cred_value) in cred_id_info {
                             if let CborValue::Text(field) = cred_key {
                                 if field == "id" {
-                                    credential_id = hex::encode(match cred_value {
-                                        CborValue::Bytes(b) => b,
-                                        _ => &[],
-                                    });
+                                    credential_id = match cred_value {
+                                        CborValue::Bytes(b) => hex::encode(b),
+                                        _ => String::new(),
+                                    };
                                 }
                             }
                         }
@@ -1309,7 +1312,7 @@ fn parse_credential(
                 }
                 0x0A => {
                     // credProtect
-                    cred_protect = cbor_to_u8(value);
+                    cred_protect = cbor_to_u8(&value);
                 }
                 _ => {}
             }
