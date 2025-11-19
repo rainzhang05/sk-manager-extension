@@ -119,7 +119,7 @@ fn ctaphid_init(device_manager: &DeviceManager, device_id: &str) -> Result<[u8; 
 
     device_manager.with_hid_device(device_id, |device| {
         transport::send_hid(device, &init_packet)?;
-        let init_response = transport::receive_hid(device, 1000)?;
+        let init_response = transport::receive_hid(device, 5000)?;
 
         // Extract CID from response (bytes 15-18 of the INIT response)
         if init_response.len() >= 19 {
@@ -186,7 +186,8 @@ fn ctap2_command(
         }
 
         // Receive response (with continuation packets if needed)
-        let response = transport::receive_hid(device, 3000)?;
+        // Use longer timeout (10s) to allow for user interaction like button press
+        let response = transport::receive_hid(device, 10000)?;
 
         // Parse response
         // Response format: [CID(4)] [CMD(1)] [BCNTH(1)] [BCNTL(1)] [DATA...]
@@ -224,7 +225,7 @@ fn ctap2_command(
         let mut expected_seq = 0u8;
 
         while received < data_len {
-            let cont_response = transport::receive_hid(device, 3000)?;
+            let cont_response = transport::receive_hid(device, 5000)?;
 
             if cont_response.len() < 5 {
                 return Err(anyhow!("Continuation packet too short"));
