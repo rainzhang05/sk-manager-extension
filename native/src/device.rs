@@ -287,22 +287,45 @@ impl DeviceManager {
         match device.device_type {
             DeviceType::Hid => {
                 let hid_api = self.hid_api.lock().unwrap();
-                // Try to open by VID/PID first (more reliable), fall back to path
-                let hid_device = match hid_api.open(device.vendor_id, device.product_id) {
-                    Ok(dev) => {
-                        log::debug!(
-                            "Opened HID device by VID/PID: {:04x}:{:04x}",
+
+                // On macOS, paths like "DevSrvsID:xxxxx" cannot be used for opening
+                // We need to use a different approach
+                let hid_device = if cfg!(target_os = "macos") && device.path.starts_with("DevSrvsID:") {
+                    // On macOS with IOService paths, we can only open by VID/PID
+                    log::debug!("macOS IOService path detected, opening by VID/PID only");
+                    hid_api
+                        .open(device.vendor_id, device.product_id)
+                        .context(format!(
+                            "Failed to open HID device with VID:PID {:04x}:{:04x}. \
+                             The device may be in use by another application, or you may need to grant \
+                             permission in System Settings > Privacy & Security > Input Monitoring",
                             device.vendor_id,
                             device.product_id
-                        );
-                        dev
-                    }
-                    Err(e) => {
-                        log::debug!("Failed to open by VID/PID, trying path: {}", e);
-                        // Fall back to opening by path
-                        hid_api
-                            .open_path(&std::ffi::CString::new(device.path.as_bytes())?)
-                            .context(format!("Failed to open HID device at {}", device.path))?
+                        ))?
+                } else {
+                    // Try to open by VID/PID first (more reliable), fall back to path
+                    match hid_api.open(device.vendor_id, device.product_id) {
+                        Ok(dev) => {
+                            log::debug!(
+                                "Opened HID device by VID/PID: {:04x}:{:04x}",
+                                device.vendor_id,
+                                device.product_id
+                            );
+                            dev
+                        }
+                        Err(e) => {
+                            log::debug!("Failed to open by VID/PID ({}), trying path: {}", e, device.path);
+                            // Fall back to opening by path
+                            hid_api
+                                .open_path(&std::ffi::CString::new(device.path.as_bytes())?)
+                                .context(format!(
+                                    "Failed to open HID device. Tried VID/PID {:04x}:{:04x} and path {}. \
+                                     The device may be in use by another application.",
+                                    device.vendor_id,
+                                    device.product_id,
+                                    device.path
+                                ))?
+                        }
                     }
                 };
 
