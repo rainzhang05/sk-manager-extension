@@ -63,26 +63,27 @@ export default function FIDO2() {
   const [reinsertAction, setReinsertAction] = useState<'setPin' | 'changePin' | 'reset' | null>(null)
 
   useEffect(() => {
-    // Check if there's already a connected device on mount
-    const checkExistingDevice = () => {
-      const storedDeviceId = sessionStorage.getItem('connectedDeviceId')
-      if (storedDeviceId && !connectedDevice) {
-        console.log('[FIDO2] Found existing connected device:', storedDeviceId)
-        setConnectedDevice(storedDeviceId)
-        loadDeviceInfo(storedDeviceId)
-        loadPinRetries(storedDeviceId)
-        loadCredentials(storedDeviceId)
-      }
-    }
+    console.log('[FIDO2] Component mounted, checking for device')
     
-    // Check for existing device immediately
-    checkExistingDevice()
+    // Check if there's already a connected device on mount
+    const storedDeviceId = sessionStorage.getItem('connectedDeviceId')
+    console.log('[FIDO2] Checking sessionStorage for device:', storedDeviceId)
+    
+    if (storedDeviceId) {
+      console.log('[FIDO2] Found existing connected device:', storedDeviceId)
+      setConnectedDevice(storedDeviceId)
+      loadDeviceInfo(storedDeviceId)
+      loadPinRetries(storedDeviceId)
+      loadCredentials(storedDeviceId)
+    } else {
+      console.log('[FIDO2] No device found in sessionStorage')
+    }
     
     // Listen for device connection events
     const handleDeviceConnected = (event: Event) => {
       const customEvent = event as CustomEvent
       const deviceId = customEvent.detail.deviceId
-      console.log('[FIDO2] Device connected event:', deviceId)
+      console.log('[FIDO2] Device connected event received:', deviceId)
       setConnectedDevice(deviceId)
       loadDeviceInfo(deviceId)
       loadPinRetries(deviceId)
@@ -101,6 +102,7 @@ export default function FIDO2() {
     window.addEventListener('device-disconnected', handleDeviceDisconnected)
 
     return () => {
+      console.log('[FIDO2] Component unmounting, cleaning up listeners')
       window.removeEventListener('device-connected', handleDeviceConnected)
       window.removeEventListener('device-disconnected', handleDeviceDisconnected)
     }
@@ -108,12 +110,20 @@ export default function FIDO2() {
   }, [])
 
   const loadDeviceInfo = async (deviceId: string) => {
+    console.log('[FIDO2] loadDeviceInfo called with deviceId:', deviceId)
     setLoading(true)
     setError(null)
 
     try {
-      // First check device type from sessionStorage or device list
-      const deviceListResponse = await window.chromeBridge!.send('listDevices', {})
+      if (!window.chromeBridge) {
+        console.error('[FIDO2] chromeBridge not available')
+        setError('Chrome extension bridge not available. Please refresh the page.')
+        setLoading(false)
+        return
+      }
+
+      console.log('[FIDO2] Fetching device list to check device type...')
+      const deviceListResponse = await window.chromeBridge.send('listDevices', {})
       let deviceType = 'Hid' // default
 
       if (deviceListResponse.status === 'ok' && deviceListResponse.result) {
@@ -133,13 +143,17 @@ export default function FIDO2() {
         }
       }
 
-      const response = await window.chromeBridge!.send('fido2GetInfo', { deviceId })
+      console.log('[FIDO2] Sending fido2GetInfo command...')
+      const response = await window.chromeBridge.send('fido2GetInfo', { deviceId })
+      console.log('[FIDO2] fido2GetInfo response:', response)
 
       if (response.status === 'ok' && response.result) {
         const result = response.result as { info: Fido2Info }
+        console.log('[FIDO2] Device info loaded successfully:', result.info)
         setDeviceInfo(result.info)
       } else {
         const errorMsg = response.error?.message || 'Failed to get device info'
+        console.error('[FIDO2] Failed to get device info:', errorMsg)
 
         // Provide helpful error messages
         if (errorMsg.includes('timeout')) {
@@ -152,6 +166,7 @@ export default function FIDO2() {
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      console.error('[FIDO2] Exception in loadDeviceInfo:', errorMsg)
       if (errorMsg.includes('timeout')) {
         setError('Communication timeout. Please ensure the device is properly connected and supports FIDO2.')
       } else {
