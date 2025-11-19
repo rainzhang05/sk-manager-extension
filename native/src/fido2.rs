@@ -1,6 +1,6 @@
 use aes::Aes256;
 use anyhow::{anyhow, Result};
-use cbc::cipher::{block_padding::NoPadding, KeyIvInit};
+use cbc::cipher::{block_padding::NoPadding, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use cbc::{Decryptor, Encryptor};
 use ciborium::Value as CborValue;
 use hmac::{Hmac, Mac};
