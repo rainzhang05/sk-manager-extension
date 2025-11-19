@@ -1,5 +1,5 @@
 import { DeviceList } from '../components'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import '../styles/Dashboard.css'
 
 export default function Dashboard() {
@@ -8,38 +8,18 @@ export default function Dashboard() {
   const [version, setVersion] = useState<string>('unknown')
   const [checking, setChecking] = useState(true)
 
-  useEffect(() => {
-    // Wait for chromeBridge to be available
-    const waitForBridge = () => {
-      if (window.chromeBridge) {
-        checkConnections()
-      } else {
-        // Retry after a short delay
-        setTimeout(waitForBridge, 100)
-      }
-    }
-    
-    waitForBridge()
-    
-    // Also listen for the chromeBridgeReady event
-    const handleBridgeReady = () => {
-      checkConnections()
-    }
-    
-    window.addEventListener('chromeBridgeReady', handleBridgeReady)
-    
-    // Set up interval to check connections live every 3 seconds
-    const interval = setInterval(checkConnections, 3000)
-    
-    return () => {
-      window.removeEventListener('chromeBridgeReady', handleBridgeReady)
-      clearInterval(interval)
-    }
-  }, [])
+  // Use ref to track if we're currently checking to avoid concurrent checks
+  const checkingRef = useRef(false)
 
-  const checkConnections = async () => {
+  const checkConnections = useCallback(async () => {
+    // Skip if already checking
+    if (checkingRef.current) {
+      return
+    }
+
+    checkingRef.current = true
     setChecking(true)
-    
+
     // Check extension
     if (window.chromeBridge) {
       setExtensionConnected(true)
@@ -61,9 +41,40 @@ export default function Dashboard() {
       setExtensionConnected(false)
       setNativeHostConnected(false)
     }
-    
+
     setChecking(false)
-  }
+    checkingRef.current = false
+  }, [])
+
+  useEffect(() => {
+    // Wait for chromeBridge to be available
+    const waitForBridge = () => {
+      if (window.chromeBridge) {
+        checkConnections()
+      } else {
+        // Retry after a short delay
+        setTimeout(waitForBridge, 100)
+      }
+    }
+
+    waitForBridge()
+
+    // Also listen for the chromeBridgeReady event
+    const handleBridgeReady = () => {
+      checkConnections()
+    }
+
+    window.addEventListener('chromeBridgeReady', handleBridgeReady)
+
+    // Set up interval to check connections every 5 seconds (increased from 3)
+    // This reduces unnecessary polling since DeviceList already polls every 2s
+    const interval = setInterval(checkConnections, 5000)
+
+    return () => {
+      window.removeEventListener('chromeBridgeReady', handleBridgeReady)
+      clearInterval(interval)
+    }
+  }, [checkConnections])
 
   return (
     <div className="page">

@@ -524,7 +524,10 @@ fn handle_fido2_list_credentials(
         }
     };
 
-    match fido2::list_credentials(device_manager, device_id) {
+    // PIN is optional for listing credentials
+    let pin = params.get("pin").and_then(|v| v.as_str());
+
+    match fido2::list_credentials(device_manager, device_id, pin) {
         Ok(credentials) => Response::success(
             id,
             serde_json::json!({
@@ -562,7 +565,10 @@ fn handle_fido2_delete_credential(
         }
     };
 
-    match fido2::delete_credential(device_manager, device_id, credential_id) {
+    // PIN is optional for deleting credentials
+    let pin = params.get("pin").and_then(|v| v.as_str());
+
+    match fido2::delete_credential(device_manager, device_id, credential_id, pin) {
         Ok(_) => Response::success(
             id,
             serde_json::json!({
