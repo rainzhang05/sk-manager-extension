@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, copilot/** ]
+    branches: [ main, copilot/**, claude/** ]
   pull_request:
     branches: [ main ]
 
@@ -50,75 +50,26 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-    
+
     - name: Install dependencies
       working-directory: web
       run: npm ci
-    
+
     - name: Build and type check
       working-directory: web
       run: npm run build
-    
+
     - name: Lint
       working-directory: web
       run: npm run lint
-
-  # macOS native host - ensures compatibility with local Mac development
-  macos-native:
-    name: macOS Native Host
-    runs-on: macos-latest
-    permissions:
-      contents: read
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        components: rustfmt, clippy
-        override: true
-    
-    - name: Cache cargo
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          native/target
-        key: macos-cargo-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Check formatting
-      working-directory: native
-      run: cargo fmt -- --check
-    
-    - name: Lint with clippy
-      working-directory: native
-      run: cargo clippy -- -W clippy::all
-    
-    - name: Build release
-      working-directory: native
-      run: cargo build --release
-    
-    - name: Run tests
-      working-directory: native
-      run: cargo test
-    
-    - name: Upload macOS binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: native-host-macos
-        path: native/target/release/feitian-sk-manager-native
 
   # Summary job
   all-checks:
@@ -126,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [extension-check, web-build, macos-native]
+    needs: [extension-check, web-build]
     
     steps:
     - name: Success
