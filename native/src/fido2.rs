@@ -123,6 +123,17 @@ fn ctaphid_init(device_manager: &DeviceManager, device_id: &str) -> Result<[u8; 
 
         // Extract CID from response (bytes 15-18 of the INIT response)
         if init_response.len() >= 19 {
+            // Verify nonce matches first (bytes 7-14 contain the echoed nonce)
+            if &init_response[7..15] != &nonce {
+                log::error!(
+                    "INIT nonce mismatch: sent {:02x?}, received {:02x?}",
+                    &nonce,
+                    &init_response[7..15]
+                );
+                return Err(anyhow!("INIT nonce mismatch"));
+            }
+
+            // Extract new CID (bytes 15-18)
             let cid = [
                 init_response[15],
                 init_response[16],
@@ -130,11 +141,7 @@ fn ctaphid_init(device_manager: &DeviceManager, device_id: &str) -> Result<[u8; 
                 init_response[18],
             ];
 
-            // Verify nonce matches
-            if &init_response[8..16] != &nonce {
-                return Err(anyhow!("INIT nonce mismatch"));
-            }
-
+            log::debug!("CTAPHID INIT successful, CID: {:02x?}", cid);
             Ok(cid)
         } else {
             Err(anyhow!("Invalid INIT response"))
