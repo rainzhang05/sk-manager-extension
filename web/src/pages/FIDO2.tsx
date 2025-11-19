@@ -106,7 +106,6 @@ export default function FIDO2() {
       window.removeEventListener('device-connected', handleDeviceConnected)
       window.removeEventListener('device-disconnected', handleDeviceDisconnected)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadDeviceInfo = async (deviceId: string) => {
