@@ -110,18 +110,53 @@ export default function FIDO2() {
   const loadDeviceInfo = async (deviceId: string) => {
     setLoading(true)
     setError(null)
-    
+
     try {
+      // First check device type from sessionStorage or device list
+      const deviceListResponse = await window.chromeBridge!.send('listDevices', {})
+      let deviceType = 'Hid' // default
+
+      if (deviceListResponse.status === 'ok' && deviceListResponse.result) {
+        const result = deviceListResponse.result as { devices?: Array<{id: string, device_type: string}> }
+        const devices = result.devices || []
+        const currentDevice = devices.find(d => d.id === deviceId)
+        if (currentDevice) {
+          deviceType = currentDevice.device_type
+          console.log('[FIDO2] Device type:', deviceType)
+
+          // If device is CCID, show helpful message
+          if (deviceType === 'Ccid') {
+            setError('This device is a smart card reader (CCID). FIDO2 management for smart card readers is not yet supported. Please use a FIDO2 HID security key.')
+            setLoading(false)
+            return
+          }
+        }
+      }
+
       const response = await window.chromeBridge!.send('fido2GetInfo', { deviceId })
-      
+
       if (response.status === 'ok' && response.result) {
         const result = response.result as { info: Fido2Info }
         setDeviceInfo(result.info)
       } else {
-        setError(response.error?.message || 'Failed to get device info')
+        const errorMsg = response.error?.message || 'Failed to get device info'
+
+        // Provide helpful error messages
+        if (errorMsg.includes('timeout')) {
+          setError('Device did not respond to FIDO2 commands. This device may not support FIDO2/CTAP2, or it may be locked. Try:\n\n1. Removing and re-inserting the device\n2. Verifying this is a FIDO2-capable security key\n3. Checking if the device requires a button press')
+        } else if (errorMsg.includes('CTAP2 error')) {
+          setError('The device returned a CTAP2 error. This may indicate the device is in an error state or does not support the requested operation.')
+        } else {
+          setError(errorMsg)
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      if (errorMsg.includes('timeout')) {
+        setError('Communication timeout. Please ensure the device is properly connected and supports FIDO2.')
+      } else {
+        setError(errorMsg)
+      }
     } finally {
       setLoading(false)
     }
