@@ -15,6 +15,14 @@ log = "0.4"
 env_logger = "0.11"
 hidapi = { version = "2.4", features = ["linux-static-hidraw"] }
 pcsc = "2.8"
+ciborium = "0.2"
+sha2 = "0.10"
+hmac = "0.12"
+p256 = { version = "0.13", features = ["ecdh"] }
+rand = "0.8"
+aes = "0.8"
+cbc = "0.1"
+hex = "0.4"
 
 [dev-dependencies]
 tokio-test = "0.4"
