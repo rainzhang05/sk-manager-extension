@@ -287,9 +287,24 @@ impl DeviceManager {
         match device.device_type {
             DeviceType::Hid => {
                 let hid_api = self.hid_api.lock().unwrap();
-                let hid_device = hid_api
-                    .open_path(&std::ffi::CString::new(device.path.as_bytes())?)
-                    .context(format!("Failed to open HID device at {}", device.path))?;
+                // Try to open by VID/PID first (more reliable), fall back to path
+                let hid_device = match hid_api.open(device.vendor_id, device.product_id) {
+                    Ok(dev) => {
+                        log::debug!(
+                            "Opened HID device by VID/PID: {:04x}:{:04x}",
+                            device.vendor_id,
+                            device.product_id
+                        );
+                        dev
+                    }
+                    Err(e) => {
+                        log::debug!("Failed to open by VID/PID, trying path: {}", e);
+                        // Fall back to opening by path
+                        hid_api
+                            .open_path(&std::ffi::CString::new(device.path.as_bytes())?)
+                            .context(format!("Failed to open HID device at {}", device.path))?
+                    }
+                };
 
                 open_devices.insert(device_id.to_string(), OpenDevice::Hid(hid_device));
                 log::info!("Successfully opened HID device: {}", device_id);
