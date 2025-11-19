@@ -162,6 +162,10 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           setError(null)
         }
         
+        // Check if device is already connected via sessionStorage
+        const storedDeviceId = sessionStorage.getItem('connectedDeviceId')
+        const isAlreadyConnected = storedDeviceId && storedDeviceId === currentDevice?.id
+        
         // Handle device connection/disconnection
         if (currentDevice && deviceChanged) {
           // New device detected or device changed
@@ -170,9 +174,17 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
             await disconnectDevice(openDeviceId)
           }
           
-          // Try to connect (will handle "already open" internally)
-          // Small delay to ensure UI updates first
-          setTimeout(() => connectDevice(currentDevice), 100)
+          // Only try to connect if not already connected
+          if (!isAlreadyConnected) {
+            // Try to connect (will handle "already open" internally)
+            // Small delay to ensure UI updates first
+            setTimeout(() => connectDevice(currentDevice), 100)
+          } else {
+            // Device is already connected, just update local state
+            console.log('[DeviceList] Device already connected from previous session:', currentDevice.id)
+            setIsConnected(true)
+            setOpenDeviceId(currentDevice.id)
+          }
         } else if (!currentDevice && openDeviceId) {
           // Device was removed, disconnect and clear state
           await disconnectDevice(openDeviceId)

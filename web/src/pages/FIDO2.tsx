@@ -57,6 +57,10 @@ export default function FIDO2() {
   // Reset confirmation
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [resetConfirmText, setResetConfirmText] = useState('')
+  
+  // Device re-insertion prompt
+  const [showReinsertPrompt, setShowReinsertPrompt] = useState(false)
+  const [reinsertAction, setReinsertAction] = useState<'setPin' | 'changePin' | 'reset' | null>(null)
 
   useEffect(() => {
     // Check if there's already a connected device on mount
@@ -162,9 +166,18 @@ export default function FIDO2() {
       return
     }
     
+    // Show re-insert prompt
+    setReinsertAction('setPin')
+    setShowReinsertPrompt(true)
+  }
+  
+  const executeSetPin = async () => {
+    if (!connectedDevice) return
+    
     setLoading(true)
     setError(null)
     setSuccessMessage(null)
+    setShowReinsertPrompt(false)
     
     try {
       const response = await window.chromeBridge!.send('fido2SetPin', {
@@ -173,13 +186,20 @@ export default function FIDO2() {
       })
       
       if (response.status === 'ok') {
-        setSuccessMessage('PIN set successfully')
+        setSuccessMessage('PIN set successfully. You can now use your security key with PIN protection.')
         setShowSetPin(false)
         setNewPin('')
         setConfirmPin('')
+        // Reload device info to update PIN status
+        loadDeviceInfo(connectedDevice)
         loadPinRetries(connectedDevice)
       } else {
-        setError(response.error?.message || 'Failed to set PIN')
+        const errorMsg = response.error?.message || 'Failed to set PIN'
+        if (errorMsg.includes('not yet implemented') || errorMsg.includes('timeout')) {
+          setError('PIN management requires full CTAP2 PIN protocol implementation. This feature is currently in development. The authenticator supports PIN operations, but this manager needs additional implementation to handle encrypted PIN operations.')
+        } else {
+          setError(errorMsg)
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -201,9 +221,23 @@ export default function FIDO2() {
       return
     }
     
+    if (!currentPin) {
+      setError('Current PIN is required')
+      return
+    }
+    
+    // Show re-insert prompt
+    setReinsertAction('changePin')
+    setShowReinsertPrompt(true)
+  }
+  
+  const executeChangePin = async () => {
+    if (!connectedDevice) return
+    
     setLoading(true)
     setError(null)
     setSuccessMessage(null)
+    setShowReinsertPrompt(false)
     
     try {
       const response = await window.chromeBridge!.send('fido2ChangePin', {
@@ -220,7 +254,12 @@ export default function FIDO2() {
         setConfirmPin('')
         loadPinRetries(connectedDevice)
       } else {
-        setError(response.error?.message || 'Failed to change PIN')
+        const errorMsg = response.error?.message || 'Failed to change PIN'
+        if (errorMsg.includes('not yet implemented') || errorMsg.includes('timeout')) {
+          setError('PIN management requires full CTAP2 PIN protocol implementation. This feature is currently in development. The authenticator supports PIN operations, but this manager needs additional implementation to handle encrypted PIN operations.')
+        } else {
+          setError(errorMsg)
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -378,13 +417,17 @@ export default function FIDO2() {
           </div>
         )}
         
+        {/* Show only one button based on whether PIN is set */}
         <div className="button-group">
-          <button onClick={() => setShowSetPin(!showSetPin)} className="btn btn-primary">
-            Set New PIN
-          </button>
-          <button onClick={() => setShowChangePin(!showChangePin)} className="btn btn-secondary">
-            Change PIN
-          </button>
+          {deviceInfo?.options.client_pin ? (
+            <button onClick={() => setShowChangePin(!showChangePin)} className="btn btn-primary">
+              Change PIN
+            </button>
+          ) : (
+            <button onClick={() => setShowSetPin(!showSetPin)} className="btn btn-primary">
+              Set New PIN
+            </button>
+          )}
         </div>
 
         {showSetPin && (
@@ -525,6 +568,50 @@ export default function FIDO2() {
           </div>
         )}
       </div>
+      
+      {/* Device Re-insertion Prompt Modal */}
+      {showReinsertPrompt && (
+        <div className="modal-overlay" onClick={() => setShowReinsertPrompt(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Device Re-insertion Required</h2>
+            <p>
+              For security purposes, PIN operations require you to re-insert your security key.
+            </p>
+            <ol>
+              <li>Remove your security key from the USB port</li>
+              <li>Wait 2 seconds</li>
+              <li>Re-insert the security key</li>
+              <li>Click "Continue" below</li>
+            </ol>
+            <div className="button-group">
+              <button 
+                onClick={() => {
+                  if (reinsertAction === 'setPin') {
+                    executeSetPin()
+                  } else if (reinsertAction === 'changePin') {
+                    executeChangePin()
+                  }
+                  setReinsertAction(null)
+                }}
+                className="btn btn-primary"
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Continue'}
+              </button>
+              <button 
+                onClick={() => {
+                  setShowReinsertPrompt(false)
+                  setReinsertAction(null)
+                }}
+                className="btn btn-secondary"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
