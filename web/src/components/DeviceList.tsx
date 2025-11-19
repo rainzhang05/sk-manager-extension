@@ -225,18 +225,12 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           } else if (storedDeviceId === currentDevice.id && !openDeviceIdRef.current) {
             // Device is marked as connected in sessionStorage but not in our state
             // This happens when the page reloads or component remounts
-            console.log('[DeviceList] Restoring connection state from sessionStorage')
-            setIsConnected(true)
-            isConnectedRef.current = true
-            setConnectionAttempted(true)
-            connectionAttemptedRef.current = true
-            openDeviceIdRef.current = currentDevice.id
-            
-            // Dispatch connection event for other components
-            const event = new CustomEvent('device-connected', {
-              detail: { deviceId: currentDevice.id }
-            })
-            window.dispatchEvent(event)
+            // We need to actually open the device, not just restore state
+            console.log('[DeviceList] Found device in sessionStorage, attempting to connect')
+            setConnectionAttempted(false)
+            connectionAttemptedRef.current = false
+            // Connect to the device
+            setTimeout(() => connectDevice(currentDevice), 100)
           } else if (openDeviceIdRef.current && openDeviceIdRef.current !== currentDevice.id) {
             // Different device, disconnect old one first
             console.log('[DeviceList] Different device detected, disconnecting old device')

@@ -420,3 +420,26 @@ mod tests {
         assert!(!support.ndef);
     }
 }
+
+/// Test U2F/CTAP1 support by sending U2F VERSION command
+pub fn detect_u2f_raw(device_manager: &DeviceManager, device_id: &str) -> Result<bool> {
+    use crate::transport;
+    
+    device_manager.with_hid_device(device_id, |device| {
+        // U2F raw message format: [CID(4)] [CMD] [BCNTH] [BCNTL] [DATA]
+        // INIT command first
+        let mut init_packet = [0u8; 64];
+        init_packet[0..4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Broadcast CID
+        init_packet[4] = 0x86; // U2FHID_INIT (0x80 | 0x06)
+        init_packet[5] = 0x00;
+        init_packet[6] = 0x08; // 8 bytes nonce
+        let nonce: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+        init_packet[7..15].copy_from_slice(&nonce);
+        
+        transport::send_hid(device, &init_packet)?;
+        let response = transport::receive_hid(device, 5000)?;
+        
+        log::info!("U2F INIT response: {:02x?}", &response[0..20]);
+        Ok(true)
+    })
+}

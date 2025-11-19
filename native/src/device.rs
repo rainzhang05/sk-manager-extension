@@ -41,6 +41,24 @@ fn enumerate_hid_devices() -> Result<Vec<Device>> {
             continue;
         }
 
+        // Get HID usage page and usage
+        let usage_page = device_info.usage_page();
+        let usage = device_info.usage();
+
+        log::debug!(
+            "HID device - Path: {}, Usage Page: 0x{:04x}, Usage: 0x{:04x}",
+            device_info.path().to_string_lossy(),
+            usage_page,
+            usage
+        );
+
+        // Skip obvious non-FIDO interfaces (keyboard=0x01/0x06, mouse=0x01/0x02)
+        // But keep everything else including unknown usage pages
+        if usage_page == 0x01 && (usage == 0x02 || usage == 0x06) {
+            log::debug!("Skipping keyboard/mouse interface (usage page 0x{:04x}, usage 0x{:04x})", usage_page, usage);
+            continue;
+        }
+
         device_counter += 1;
 
         let manufacturer = device_info.manufacturer_string().map(|s| s.to_string());
@@ -62,13 +80,15 @@ fn enumerate_hid_devices() -> Result<Vec<Device>> {
         };
 
         log::info!(
-            "Found HID device: {} - VID: 0x{:04x}, PID: 0x{:04x}, Path: {}",
+            "Found HID device: {} - VID: 0x{:04x}, PID: 0x{:04x}, Usage Page: 0x{:04x}, Usage: 0x{:04x}, Path: {}",
             device
                 .product_name
                 .as_ref()
                 .unwrap_or(&"Unknown".to_string()),
             device.vendor_id,
             device.product_id,
+            usage_page,
+            usage,
             device.path
         );
 
