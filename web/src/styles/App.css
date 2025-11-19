@@ -40,21 +40,30 @@
   margin-bottom: var(--spacing-xs);
 }
 
-.nav-menu a {
+.nav-menu a,
+.nav-menu button {
   display: flex;
   align-items: center;
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   transition: background-color var(--transition-fast);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
 }
 
-.nav-menu a:hover {
+.nav-menu a:hover,
+.nav-menu button:hover {
   background-color: var(--color-bg-secondary);
 }
 
 .nav-menu a:active,
-.nav-menu a.active {
+.nav-menu a.active,
+.nav-menu button.active {
   background-color: var(--color-bg-tertiary);
   font-weight: 600;
 }
@@ -66,13 +75,30 @@
   height: 100vh;
   overflow-y: auto;
   background: var(--color-bg-secondary);
-  padding: var(--spacing-2xl);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Persistent Device List at top of all views */
+.persistent-device-list {
+  background: var(--color-bg-secondary);
+  padding: var(--spacing-lg) var(--spacing-2xl) 0 var(--spacing-2xl);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* View content below device list */
+.view-content {
+  flex: 1;
+  padding: 0 var(--spacing-2xl) var(--spacing-2xl) var(--spacing-2xl);
 }
 
 /* Page Container */
 .page {
   max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
 }
 
 .page h1 {

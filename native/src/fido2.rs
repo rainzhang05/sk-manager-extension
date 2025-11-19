@@ -176,6 +176,7 @@ fn ctap2_command(
         packet[8..8 + first_chunk_len].copy_from_slice(&data[..first_chunk_len]);
         sent += first_chunk_len;
 
+        log::debug!("Sending CTAP2 command 0x{:02X}, payload_len: {}", command, payload_len);
         transport::send_hid(device, &packet)?;
 
         // Send continuation packets if needed
@@ -193,8 +194,9 @@ fn ctap2_command(
         }
 
         // Receive response (with continuation packets if needed)
-        // Use longer timeout (10s) to allow for user interaction like button press
-        let response = transport::receive_hid(device, 10000)?;
+        // Use 30s timeout to allow for user interaction like button press
+        log::debug!("Waiting for authenticator response (timeout: 30s)...");
+        let response = transport::receive_hid(device, 30000)?;
 
         // Parse response
         // Response format: [CID(4)] [CMD(1)] [BCNTH(1)] [BCNTL(1)] [DATA...]

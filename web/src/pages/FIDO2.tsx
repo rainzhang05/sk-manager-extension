@@ -215,10 +215,13 @@ export default function FIDO2() {
     setShowReinsertPrompt(false)
     
     try {
+      console.log('[FIDO2] Sending fido2SetPin command...')
       const response = await window.chromeBridge!.send('fido2SetPin', {
         deviceId: connectedDevice,
         newPin
       })
+      
+      console.log('[FIDO2] fido2SetPin response:', response)
       
       if (response.status === 'ok') {
         setSuccessMessage('PIN set successfully. You can now use your security key with PIN protection.')
@@ -230,14 +233,20 @@ export default function FIDO2() {
         loadPinRetries(connectedDevice)
       } else {
         const errorMsg = response.error?.message || 'Failed to set PIN'
-        if (errorMsg.includes('not yet implemented') || errorMsg.includes('timeout')) {
+        console.error('[FIDO2] Set PIN error:', errorMsg)
+        
+        if (errorMsg.includes('timeout') || errorMsg.includes('HID read timeout')) {
+          setError('Operation timed out. Your security key may require:\n\n1. A button touch to confirm the operation\n2. Re-insertion (remove and re-insert the key, then try again)\n3. The key may not support PIN operations\n\nPlease touch the button on your security key if it is blinking.')
+        } else if (errorMsg.includes('not yet implemented')) {
           setError('PIN management requires full CTAP2 PIN protocol implementation. This feature is currently in development. The authenticator supports PIN operations, but this manager needs additional implementation to handle encrypted PIN operations.')
         } else {
           setError(errorMsg)
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      console.error('[FIDO2] Set PIN exception:', errorMsg)
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -275,11 +284,14 @@ export default function FIDO2() {
     setShowReinsertPrompt(false)
     
     try {
+      console.log('[FIDO2] Sending fido2ChangePin command...')
       const response = await window.chromeBridge!.send('fido2ChangePin', {
         deviceId: connectedDevice,
         currentPin,
         newPin
       })
+      
+      console.log('[FIDO2] fido2ChangePin response:', response)
       
       if (response.status === 'ok') {
         setSuccessMessage('PIN changed successfully')
@@ -290,14 +302,20 @@ export default function FIDO2() {
         loadPinRetries(connectedDevice)
       } else {
         const errorMsg = response.error?.message || 'Failed to change PIN'
-        if (errorMsg.includes('not yet implemented') || errorMsg.includes('timeout')) {
+        console.error('[FIDO2] Change PIN error:', errorMsg)
+        
+        if (errorMsg.includes('timeout') || errorMsg.includes('HID read timeout')) {
+          setError('Operation timed out. Your security key may require:\n\n1. A button touch to confirm the operation\n2. Re-insertion (remove and re-insert the key, then try again)\n3. The key may not support PIN operations\n\nPlease touch the button on your security key if it is blinking.')
+        } else if (errorMsg.includes('not yet implemented')) {
           setError('PIN management requires full CTAP2 PIN protocol implementation. This feature is currently in development. The authenticator supports PIN operations, but this manager needs additional implementation to handle encrypted PIN operations.')
         } else {
           setError(errorMsg)
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      console.error('[FIDO2] Change PIN exception:', errorMsg)
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }

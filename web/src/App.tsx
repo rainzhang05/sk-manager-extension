@@ -1,5 +1,7 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, NavLink } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { Dashboard, FIDO2, Protocols, DebugConsole } from './pages'
+import DeviceList from './components/DeviceList'
+import { connectionManager } from './services/ConnectionManager'
 import './styles/App.css'
 
 // Placeholder pages - will be implemented in later phases
@@ -17,36 +19,105 @@ const OTPManager = () => (
   </div>
 )
 
+type ViewType = 'dashboard' | 'fido2' | 'piv' | 'otp' | 'protocols' | 'debug'
+
 function App() {
+  const [activeView, setActiveView] = useState<ViewType>('dashboard')
+
+  // Initialize connection manager at app level
+  useEffect(() => {
+    console.log('[App] Initializing connection manager')
+    connectionManager.refreshConnections()
+  }, [])
+
+  const renderView = () => {
+    switch (activeView) {
+      case 'dashboard':
+        return <Dashboard />
+      case 'fido2':
+        return <FIDO2 />
+      case 'piv':
+        return <PIVManager />
+      case 'otp':
+        return <OTPManager />
+      case 'protocols':
+        return <Protocols />
+      case 'debug':
+        return <DebugConsole />
+      default:
+        return <Dashboard />
+    }
+  }
+
   return (
-    <Router>
-      <div className="app">
-        <nav className="sidebar">
-          <div className="sidebar-header">
-            <h1>Feitian SK Manager</h1>
-          </div>
-          <ul className="nav-menu">
-            <li><NavLink to="/" end>Dashboard</NavLink></li>
-            <li><NavLink to="/fido2">FIDO2</NavLink></li>
-            <li><NavLink to="/piv">PIV</NavLink></li>
-            <li><NavLink to="/otp">OTP</NavLink></li>
-            <li><NavLink to="/protocols">Protocols</NavLink></li>
-            <li><NavLink to="/debug">Debug</NavLink></li>
-          </ul>
-        </nav>
-        <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/fido2" element={<FIDO2 />} />
-            <Route path="/piv" element={<PIVManager />} />
-            <Route path="/otp" element={<OTPManager />} />
-            <Route path="/protocols" element={<Protocols />} />
-            <Route path="/debug" element={<DebugConsole />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+    <div className="app">
+      <nav className="sidebar">
+        <div className="sidebar-header">
+          <h1>Feitian SK Manager</h1>
+        </div>
+        <ul className="nav-menu">
+          <li>
+            <button 
+              className={activeView === 'dashboard' ? 'active' : ''}
+              onClick={() => setActiveView('dashboard')}
+            >
+              Dashboard
+            </button>
+          </li>
+          <li>
+            <button 
+              className={activeView === 'fido2' ? 'active' : ''}
+              onClick={() => setActiveView('fido2')}
+            >
+              FIDO2
+            </button>
+          </li>
+          <li>
+            <button 
+              className={activeView === 'piv' ? 'active' : ''}
+              onClick={() => setActiveView('piv')}
+            >
+              PIV
+            </button>
+          </li>
+          <li>
+            <button 
+              className={activeView === 'otp' ? 'active' : ''}
+              onClick={() => setActiveView('otp')}
+            >
+              OTP
+            </button>
+          </li>
+          <li>
+            <button 
+              className={activeView === 'protocols' ? 'active' : ''}
+              onClick={() => setActiveView('protocols')}
+            >
+              Protocols
+            </button>
+          </li>
+          <li>
+            <button 
+              className={activeView === 'debug' ? 'active' : ''}
+              onClick={() => setActiveView('debug')}
+            >
+              Debug
+            </button>
+          </li>
+        </ul>
+      </nav>
+      <main className="main-content">
+        {/* DeviceList component persists across all views */}
+        <div className="persistent-device-list">
+          <DeviceList />
+        </div>
+        
+        {/* Active view content */}
+        <div className="view-content">
+          {renderView()}
+        </div>
+      </main>
+    </div>
   )
 }
 

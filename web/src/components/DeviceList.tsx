@@ -215,10 +215,28 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
             setError(null)
           }
 
-          // If already tracking this device as connected, skip
+          // If already tracking this device as connected, skip connection attempt
           if (openDeviceIdRef.current === currentDevice.id && isConnectedRef.current) {
-            console.log('[DeviceList] Device already connected:', currentDevice.id)
-            // Continue with rest of function, don't return early
+            // Device is already connected, ensure state is consistent
+            setIsConnected(true)
+            setConnectionAttempted(true)
+            connectionAttemptedRef.current = true
+            // Don't try to reconnect
+          } else if (storedDeviceId === currentDevice.id && !openDeviceIdRef.current) {
+            // Device is marked as connected in sessionStorage but not in our state
+            // This happens when the page reloads or component remounts
+            console.log('[DeviceList] Restoring connection state from sessionStorage')
+            setIsConnected(true)
+            isConnectedRef.current = true
+            setConnectionAttempted(true)
+            connectionAttemptedRef.current = true
+            openDeviceIdRef.current = currentDevice.id
+            
+            // Dispatch connection event for other components
+            const event = new CustomEvent('device-connected', {
+              detail: { deviceId: currentDevice.id }
+            })
+            window.dispatchEvent(event)
           } else if (openDeviceIdRef.current && openDeviceIdRef.current !== currentDevice.id) {
             // Different device, disconnect old one first
             console.log('[DeviceList] Different device detected, disconnecting old device')
@@ -228,10 +246,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           } else if (!openDeviceIdRef.current && !connectionAttemptedRef.current) {
             // Not connected yet and haven't tried, attempt connection
             console.log('[DeviceList] New device, attempting connection')
-            // Check if already connected from sessionStorage first
-            if (storedDeviceId === currentDevice.id) {
-              console.log('[DeviceList] Device marked as connected in sessionStorage, trying to use it')
-            }
             // Small delay to ensure UI updates first
             setTimeout(() => connectDevice(currentDevice), 100)
           }

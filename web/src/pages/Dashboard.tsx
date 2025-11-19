@@ -1,4 +1,3 @@
-import { DeviceList } from '../components'
 import { useState, useEffect } from 'react'
 import { connectionManager, ConnectionState } from '../services/ConnectionManager'
 import '../styles/Dashboard.css'
@@ -75,10 +74,6 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-        </div>
-
-        <div className="devices-section">
-          <DeviceList onRefresh={() => connectionManager.refreshConnections()} />
         </div>
       </div>
     </div>
