@@ -1,15 +1,14 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use ciborium::Value as CborValue;
-use std::collections::BTreeMap;
 use sha2::{Sha256, Digest};
 use hmac::{Hmac, Mac};
-use p256::{SecretKey, PublicKey, ecdh::EphemeralSecret};
+use p256::{PublicKey, ecdh::EphemeralSecret};
 use p256::elliptic_curve::sec1::ToEncodedPoint;
 use rand::rngs::OsRng;
 use aes::Aes256;
 use cbc::{Encryptor, Decryptor};
-use cbc::cipher::{BlockEncryptMut, BlockDecryptMut, KeyIvInit};
+use cbc::cipher::{BlockEncryptMut, BlockDecryptMut, KeyIvInit, block_padding::NoPadding};
 
 use crate::device::DeviceManager;
 use crate::transport;
@@ -502,9 +501,10 @@ pub fn get_pin_retries(device_manager: &DeviceManager, device_id: &str) -> Resul
 
     // Construct ClientPIN getRetries command
     // CBOR map: {0x01: pinProtocol, 0x02: subCommand}
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(1.into())); // pinProtocol = 1
-    cmd_map.insert(CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_RETRIES.into())); // subCommand = getPinRetries
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol = 1
+        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_RETRIES.into())), // subCommand = getPinRetries
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
@@ -551,9 +551,10 @@ fn get_key_agreement(
     device_id: &str,
     cid: &[u8; 4],
 ) -> Result<Vec<u8>> {
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(1.into())); // pinProtocol = 1
-    cmd_map.insert(CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_KEY_AGREEMENT.into()));
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol = 1
+        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_KEY_AGREEMENT.into())),
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
@@ -652,15 +653,9 @@ fn encrypt_pin(pin: &str, shared_secret: &[u8]) -> Result<Vec<u8>> {
 
     // Encrypt using AES-256-CBC
     let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
-    let mut encrypted = pin_bytes.clone();
 
-    // Pad to block size (16 bytes)
-    let padding_needed = 16 - (encrypted.len() % 16);
-    if padding_needed != 16 {
-        encrypted.resize(encrypted.len() + padding_needed, padding_needed as u8);
-    }
-
-    let ciphertext = cipher.encrypt_padded_vec_mut::<cbc::cipher::block_padding::NoPadding>(&encrypted)
+    // The data is already 64 bytes which is a multiple of 16, so no padding needed
+    let ciphertext = cipher.encrypt_padded_vec_mut::<NoPadding>(&pin_bytes)
         .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
 
     Ok(ciphertext)
@@ -706,20 +701,22 @@ pub fn set_pin(device_manager: &DeviceManager, device_id: &str, new_pin: &str) -
     let pin_auth = compute_pin_auth(&shared_secret, &encrypted_pin)?;
 
     // Step 5: Build COSE_Key for platform public key
-    let mut cose_key = BTreeMap::new();
-    cose_key.insert(CborValue::Integer(1.into()), CborValue::Integer(2.into())); // kty: EC2
-    cose_key.insert(CborValue::Integer(3.into()), CborValue::Integer((-25).into())); // alg: ECDH-ES+HKDF-256
-    cose_key.insert(CborValue::Integer((-1).into()), CborValue::Integer(1.into())); // crv: P-256
-    cose_key.insert(CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec())); // x
-    cose_key.insert(CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec())); // y
+    let cose_key = vec![
+        (CborValue::Integer(1.into()), CborValue::Integer(2.into())), // kty: EC2
+        (CborValue::Integer(3.into()), CborValue::Integer((-25).into())), // alg: ECDH-ES+HKDF-256
+        (CborValue::Integer((-1).into()), CborValue::Integer(1.into())), // crv: P-256
+        (CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec())), // x
+        (CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec())), // y
+    ];
 
     // Step 6: Build command
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(1.into())); // pinProtocol
-    cmd_map.insert(CborValue::Integer(0x02.into()), CborValue::Integer(PIN_SET_PIN.into())); // subCommand
-    cmd_map.insert(CborValue::Integer(0x03.into()), CborValue::Map(cose_key)); // keyAgreement
-    cmd_map.insert(CborValue::Integer(0x05.into()), CborValue::Bytes(encrypted_pin)); // newPinEnc
-    cmd_map.insert(CborValue::Integer(0x06.into()), CborValue::Bytes(pin_auth)); // pinAuth
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol
+        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_SET_PIN.into())), // subCommand
+        (CborValue::Integer(0x03.into()), CborValue::Map(cose_key)), // keyAgreement
+        (CborValue::Integer(0x05.into()), CborValue::Bytes(encrypted_pin)), // newPinEnc
+        (CborValue::Integer(0x06.into()), CborValue::Bytes(pin_auth)), // pinAuth
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
@@ -772,9 +769,7 @@ pub fn change_pin(
         let key = &shared_secret[0..32];
         let iv = [0u8; 16];
         let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
-        let mut encrypted = padded.clone();
-        encrypted.resize(16, 0);
-        cipher.encrypt_padded_vec_mut::<cbc::cipher::block_padding::NoPadding>(&encrypted)
+        cipher.encrypt_padded_vec_mut::<NoPadding>(&padded)
             .map_err(|e| anyhow!("Encryption failed: {:?}", e))?
     };
 
@@ -784,21 +779,23 @@ pub fn change_pin(
     let pin_auth = compute_pin_auth(&shared_secret, &pin_auth_data)?;
 
     // Step 5: Build COSE_Key for platform public key
-    let mut cose_key = BTreeMap::new();
-    cose_key.insert(CborValue::Integer(1.into()), CborValue::Integer(2.into())); // kty: EC2
-    cose_key.insert(CborValue::Integer(3.into()), CborValue::Integer((-25).into())); // alg: ECDH-ES+HKDF-256
-    cose_key.insert(CborValue::Integer((-1).into()), CborValue::Integer(1.into())); // crv: P-256
-    cose_key.insert(CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec())); // x
-    cose_key.insert(CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec())); // y
+    let cose_key = vec![
+        (CborValue::Integer(1.into()), CborValue::Integer(2.into())), // kty: EC2
+        (CborValue::Integer(3.into()), CborValue::Integer((-25).into())), // alg: ECDH-ES+HKDF-256
+        (CborValue::Integer((-1).into()), CborValue::Integer(1.into())), // crv: P-256
+        (CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec())), // x
+        (CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec())), // y
+    ];
 
     // Step 6: Build command
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(1.into())); // pinProtocol
-    cmd_map.insert(CborValue::Integer(0x02.into()), CborValue::Integer(PIN_CHANGE_PIN.into())); // subCommand
-    cmd_map.insert(CborValue::Integer(0x03.into()), CborValue::Map(cose_key)); // keyAgreement
-    cmd_map.insert(CborValue::Integer(0x04.into()), CborValue::Bytes(encrypted_current_pin_hash)); // pinHashEnc
-    cmd_map.insert(CborValue::Integer(0x05.into()), CborValue::Bytes(encrypted_new_pin)); // newPinEnc
-    cmd_map.insert(CborValue::Integer(0x06.into()), CborValue::Bytes(pin_auth)); // pinAuth
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol
+        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_CHANGE_PIN.into())), // subCommand
+        (CborValue::Integer(0x03.into()), CborValue::Map(cose_key)), // keyAgreement
+        (CborValue::Integer(0x04.into()), CborValue::Bytes(encrypted_current_pin_hash)), // pinHashEnc
+        (CborValue::Integer(0x05.into()), CborValue::Bytes(encrypted_new_pin)), // newPinEnc
+        (CborValue::Integer(0x06.into()), CborValue::Bytes(pin_auth)), // pinAuth
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
@@ -835,23 +832,25 @@ fn get_pin_token(
     let key = &shared_secret[0..32];
     let iv = [0u8; 16];
     let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
-    let encrypted_pin_hash = cipher.encrypt_padded_vec_mut::<cbc::cipher::block_padding::NoPadding>(&padded)
+    let encrypted_pin_hash = cipher.encrypt_padded_vec_mut::<NoPadding>(&padded)
         .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
 
     // Step 5: Build COSE_Key
-    let mut cose_key = BTreeMap::new();
-    cose_key.insert(CborValue::Integer(1.into()), CborValue::Integer(2.into()));
-    cose_key.insert(CborValue::Integer(3.into()), CborValue::Integer((-25).into()));
-    cose_key.insert(CborValue::Integer((-1).into()), CborValue::Integer(1.into()));
-    cose_key.insert(CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec()));
-    cose_key.insert(CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec()));
+    let cose_key = vec![
+        (CborValue::Integer(1.into()), CborValue::Integer(2.into())),
+        (CborValue::Integer(3.into()), CborValue::Integer((-25).into())),
+        (CborValue::Integer((-1).into()), CborValue::Integer(1.into())),
+        (CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec())),
+        (CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec())),
+    ];
 
     // Step 6: Build command
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(1.into())); // pinProtocol
-    cmd_map.insert(CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_PIN_TOKEN.into())); // subCommand
-    cmd_map.insert(CborValue::Integer(0x03.into()), CborValue::Map(cose_key)); // keyAgreement
-    cmd_map.insert(CborValue::Integer(0x04.into()), CborValue::Bytes(encrypted_pin_hash)); // pinHashEnc
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol
+        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_PIN_TOKEN.into())), // subCommand
+        (CborValue::Integer(0x03.into()), CborValue::Map(cose_key)), // keyAgreement
+        (CborValue::Integer(0x04.into()), CborValue::Bytes(encrypted_pin_hash)), // pinHashEnc
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
@@ -872,14 +871,14 @@ fn get_pin_token(
         if let CborValue::Integer(i) = key {
             let key_int: i128 = i.into();
             if key_int == 0x02 { // pinToken
-                if let CborValue::Bytes(encrypted_token) = value {
+                if let CborValue::Bytes(mut encrypted_token) = value {
                     // Decrypt PIN token
                     let key = &shared_secret[0..32];
                     let iv = [0u8; 16];
                     let cipher = Aes256CbcDec::new(key.into(), &iv.into());
-                    let decrypted = cipher.decrypt_padded_vec_mut::<cbc::cipher::block_padding::NoPadding>(&encrypted_token)
+                    let decrypted = cipher.decrypt_padded_vec_mut::<NoPadding>(&mut encrypted_token)
                         .map_err(|e| anyhow!("Decryption failed: {:?}", e))?;
-                    return Ok(decrypted);
+                    return Ok(decrypted.to_vec());
                 }
             }
         }
@@ -913,18 +912,18 @@ pub fn list_credentials(
     let mut credentials = Vec::new();
 
     // First, enumerate RPs
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_RPS_BEGIN.into())); // subCommand
-    cmd_map.insert(CborValue::Integer(0x02.into()), CborValue::Bytes(Vec::new())); // subCommandParams (empty)
-
     // Compute pinAuth
     let mut pin_auth_data = Vec::new();
     ciborium::into_writer(&CborValue::Bytes(Vec::new()), &mut pin_auth_data)
         .map_err(|e| anyhow!("Failed to encode: {}", e))?;
     let pin_auth = compute_pin_auth(&pin_token, &pin_auth_data)?;
 
-    cmd_map.insert(CborValue::Integer(0x03.into()), CborValue::Integer(1.into())); // pinProtocol
-    cmd_map.insert(CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth)); // pinAuth
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_RPS_BEGIN.into())), // subCommand
+        (CborValue::Integer(0x02.into()), CborValue::Bytes(Vec::new())), // subCommandParams (empty)
+        (CborValue::Integer(0x03.into()), CborValue::Integer(1.into())), // pinProtocol
+        (CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth)), // pinAuth
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
@@ -999,8 +998,9 @@ fn enumerate_credentials_for_rp(
     let mut credentials = Vec::new();
 
     // Build subCommandParams
-    let mut sub_params = BTreeMap::new();
-    sub_params.insert(CborValue::Text("id".to_string()), CborValue::Text(rp_id.to_string()));
+    let sub_params = vec![
+        (CborValue::Text("id".to_string()), CborValue::Text(rp_id.to_string())),
+    ];
 
     // Encode subCommandParams
     let mut sub_params_bytes = Vec::new();
@@ -1011,11 +1011,12 @@ fn enumerate_credentials_for_rp(
     let pin_auth = compute_pin_auth(pin_token, &sub_params_bytes)?;
 
     // Build command
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_CREDENTIALS_BEGIN.into()));
-    cmd_map.insert(CborValue::Integer(0x02.into()), CborValue::Bytes(sub_params_bytes));
-    cmd_map.insert(CborValue::Integer(0x03.into()), CborValue::Integer(1.into()));
-    cmd_map.insert(CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth));
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_CREDENTIALS_BEGIN.into())),
+        (CborValue::Integer(0x02.into()), CborValue::Bytes(sub_params_bytes)),
+        (CborValue::Integer(0x03.into()), CborValue::Integer(1.into())),
+        (CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth)),
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
@@ -1068,8 +1069,9 @@ fn enumerate_next_credential(
     rp_id: &str,
     rp_name: &str,
 ) -> Result<Credential> {
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_CREDENTIALS_NEXT.into()));
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_CREDENTIALS_NEXT.into())),
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
@@ -1177,12 +1179,14 @@ pub fn delete_credential(
         .map_err(|e| anyhow!("Invalid credential ID: {}", e))?;
 
     // Build subCommandParams
-    let mut cred_descriptor = BTreeMap::new();
-    cred_descriptor.insert(CborValue::Text("id".to_string()), CborValue::Bytes(cred_id_bytes));
-    cred_descriptor.insert(CborValue::Text("type".to_string()), CborValue::Text("public-key".to_string()));
+    let cred_descriptor = vec![
+        (CborValue::Text("id".to_string()), CborValue::Bytes(cred_id_bytes)),
+        (CborValue::Text("type".to_string()), CborValue::Text("public-key".to_string())),
+    ];
 
-    let mut sub_params = BTreeMap::new();
-    sub_params.insert(CborValue::Text("credentialDescriptor".to_string()), CborValue::Map(cred_descriptor));
+    let sub_params = vec![
+        (CborValue::Text("credentialDescriptor".to_string()), CborValue::Map(cred_descriptor)),
+    ];
 
     let mut sub_params_bytes = Vec::new();
     ciborium::into_writer(&CborValue::Map(sub_params), &mut sub_params_bytes)
@@ -1192,11 +1196,12 @@ pub fn delete_credential(
     let pin_auth = compute_pin_auth(&pin_token, &sub_params_bytes)?;
 
     // Build command
-    let mut cmd_map = BTreeMap::new();
-    cmd_map.insert(CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_DELETE_CREDENTIAL.into()));
-    cmd_map.insert(CborValue::Integer(0x02.into()), CborValue::Bytes(sub_params_bytes));
-    cmd_map.insert(CborValue::Integer(0x03.into()), CborValue::Integer(1.into()));
-    cmd_map.insert(CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth));
+    let cmd_map = vec![
+        (CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_DELETE_CREDENTIAL.into())),
+        (CborValue::Integer(0x02.into()), CborValue::Bytes(sub_params_bytes)),
+        (CborValue::Integer(0x03.into()), CborValue::Integer(1.into())),
+        (CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth)),
+    ];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
