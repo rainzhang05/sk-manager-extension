@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import { Dashboard, FIDO2, Protocols, DebugConsole } from './pages'
 import './styles/App.css'
 
@@ -26,12 +26,12 @@ function App() {
             <h1>Feitian SK Manager</h1>
           </div>
           <ul className="nav-menu">
-            <li><a href="/">Dashboard</a></li>
-            <li><a href="/fido2">FIDO2</a></li>
-            <li><a href="/piv">PIV</a></li>
-            <li><a href="/otp">OTP</a></li>
-            <li><a href="/protocols">Protocols</a></li>
-            <li><a href="/debug">Debug</a></li>
+            <li><NavLink to="/" end>Dashboard</NavLink></li>
+            <li><NavLink to="/fido2">FIDO2</NavLink></li>
+            <li><NavLink to="/piv">PIV</NavLink></li>
+            <li><NavLink to="/otp">OTP</NavLink></li>
+            <li><NavLink to="/protocols">Protocols</NavLink></li>
+            <li><NavLink to="/debug">Debug</NavLink></li>
           </ul>
         </nav>
         <main className="main-content">
