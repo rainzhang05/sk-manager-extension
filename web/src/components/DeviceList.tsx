@@ -28,6 +28,8 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   const openDeviceIdRef = useRef<string | null>(null)
   const connectingRef = useRef(false)
   const deviceRef = useRef<Device | null>(null)
+  const isConnectedRef = useRef(false)
+  const connectionAttemptedRef = useRef(false)
 
   // Update refs when state changes
   useEffect(() => {
@@ -37,6 +39,14 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
   useEffect(() => {
     connectingRef.current = connecting
   }, [connecting])
+
+  useEffect(() => {
+    isConnectedRef.current = isConnected
+  }, [isConnected])
+
+  useEffect(() => {
+    connectionAttemptedRef.current = connectionAttempted
+  }, [connectionAttempted])
 
   // Auto-connect to device when detected
   const connectDevice = useCallback(async (deviceToConnect: Device) => {
@@ -62,7 +72,9 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       if (response.status === 'ok') {
         console.log('[DeviceList] Device connected successfully')
         setIsConnected(true)
+        isConnectedRef.current = true
         setConnectionAttempted(true)
+        connectionAttemptedRef.current = true
         openDeviceIdRef.current = deviceToConnect.id
 
         // Store connected device ID in sessionStorage for other components
@@ -81,7 +93,9 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           console.log('[DeviceList] Device is already open, treating as connected')
           // Device is already open, just update state
           setIsConnected(true)
+          isConnectedRef.current = true
           setConnectionAttempted(true)
+          connectionAttemptedRef.current = true
           openDeviceIdRef.current = deviceToConnect.id
 
           // Store connected device ID in sessionStorage for other components
@@ -95,6 +109,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         } else {
           // Real error, show it and mark attempt as done to prevent infinite retries
           setConnectionAttempted(true)
+          connectionAttemptedRef.current = true
           setError(response.error?.message || 'Failed to connect to device')
           // Clear any stale sessionStorage data
           sessionStorage.removeItem('connectedDeviceId')
@@ -104,6 +119,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
     } catch (err) {
       console.error('[DeviceList] Error connecting:', err)
       setConnectionAttempted(true)
+      connectionAttemptedRef.current = true
       setError(err instanceof Error ? err.message : 'Failed to connect to device')
       // Clear any stale sessionStorage data
       sessionStorage.removeItem('connectedDeviceId')
@@ -129,6 +145,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
       if (response.status === 'ok') {
         console.log('[DeviceList] Device disconnected successfully')
         setIsConnected(false)
+        isConnectedRef.current = false
         openDeviceIdRef.current = null
 
         // Clear connected device ID from sessionStorage
@@ -144,6 +161,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         // If device is not open, that's fine - just clear state
         if (response.error?.message?.includes('not open')) {
           setIsConnected(false)
+          isConnectedRef.current = false
           openDeviceIdRef.current = null
         }
       }
@@ -193,11 +211,12 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           if (deviceChanged) {
             console.log('[DeviceList] Device changed, resetting connection state')
             setConnectionAttempted(false)
+            connectionAttemptedRef.current = false
             setError(null)
           }
 
           // If already tracking this device as connected, skip
-          if (openDeviceIdRef.current === currentDevice.id && isConnected) {
+          if (openDeviceIdRef.current === currentDevice.id && isConnectedRef.current) {
             console.log('[DeviceList] Device already connected:', currentDevice.id)
             // Continue with rest of function, don't return early
           } else if (openDeviceIdRef.current && openDeviceIdRef.current !== currentDevice.id) {
@@ -205,7 +224,8 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
             console.log('[DeviceList] Different device detected, disconnecting old device')
             await disconnectDevice(openDeviceIdRef.current)
             setConnectionAttempted(false)
-          } else if (!openDeviceIdRef.current && !connectionAttempted) {
+            connectionAttemptedRef.current = false
+          } else if (!openDeviceIdRef.current && !connectionAttemptedRef.current) {
             // Not connected yet and haven't tried, attempt connection
             console.log('[DeviceList] New device, attempting connection')
             // Check if already connected from sessionStorage first
@@ -220,10 +240,12 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
           await disconnectDevice(openDeviceIdRef.current)
           setDevice(null)
           setIsConnected(false)
+          isConnectedRef.current = false
           openDeviceIdRef.current = null
         } else if (!currentDevice) {
           // No device and no open device, just clear state
           setIsConnected(false)
+          isConnectedRef.current = false
           openDeviceIdRef.current = null
         }
       } else {
@@ -358,6 +380,7 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
                 <button
                   onClick={() => {
                     setConnectionAttempted(false)
+                    connectionAttemptedRef.current = false
                     setError(null)
                     connectDevice(device)
                   }}
