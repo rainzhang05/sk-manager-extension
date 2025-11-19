@@ -9,7 +9,6 @@ use p256::{ecdh::EphemeralSecret, PublicKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::vec::Vec as StdVec;
 
 use crate::device::DeviceManager;
 use crate::transport;
@@ -705,10 +704,10 @@ fn encrypt_pin(pin: &str, shared_secret: &[u8]) -> Result<Vec<u8>> {
 
     // The data is already 64 bytes which is a multiple of 16, so no padding needed
     let ciphertext = cipher
-        .encrypt_padded_vec::<NoPadding>(&pin_bytes)
+        .encrypt_padded_mut::<NoPadding>(&mut pin_bytes, 64)
         .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
 
-    Ok(ciphertext)
+    Ok(ciphertext.to_vec())
 }
 
 /// Compute PIN auth (HMAC-SHA-256)
@@ -840,9 +839,10 @@ pub fn change_pin(
         let key = &shared_secret[0..32];
         let iv = [0u8; 16];
         let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
-        cipher
-            .encrypt_padded_vec::<NoPadding>(&padded)
-            .map_err(|e| anyhow!("Encryption failed: {:?}", e))?
+        let encrypted = cipher
+            .encrypt_padded_mut::<NoPadding>(&mut padded, 16)
+            .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
+        encrypted.to_vec()
     };
 
     // Step 4: Compute pinAuth over newPinEnc || pinHashEnc
@@ -929,8 +929,9 @@ fn get_pin_token(
     let iv = [0u8; 16];
     let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
     let encrypted_pin_hash = cipher
-        .encrypt_padded_vec::<NoPadding>(&padded)
-        .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
+        .encrypt_padded_mut::<NoPadding>(&mut padded, 16)
+        .map_err(|e| anyhow!("Encryption failed: {:?}", e))?
+        .to_vec();
 
     // Step 5: Build COSE_Key
     let cose_key = vec![
@@ -995,10 +996,11 @@ fn get_pin_token(
                     let key = &shared_secret[0..32];
                     let iv = [0u8; 16];
                     let cipher = Aes256CbcDec::new(key.into(), &iv.into());
+                    let mut buffer = encrypted_token.clone();
                     let decrypted = cipher
-                        .decrypt_padded_vec::<NoPadding>(&encrypted_token)
+                        .decrypt_padded_mut::<NoPadding>(&mut buffer)
                         .map_err(|e| anyhow!("Decryption failed: {:?}", e))?;
-                    return Ok(decrypted);
+                    return Ok(decrypted.to_vec());
                 }
             }
         }
@@ -1266,7 +1268,7 @@ fn parse_credential(
 
     for (key, value) in map {
         if let CborValue::Integer(i) = key {
-            let key_int: i128 = i.into();
+            let key_int: i128 = (*i).into();
             match key_int {
                 0x06 => {
                     // user
