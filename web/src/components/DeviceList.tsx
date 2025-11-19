@@ -163,10 +163,6 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         const devices = result.devices || []
         const currentDevice = devices.length > 0 ? devices[0] : null
 
-        // Check if device changed (comparing IDs only)
-        const previousDevice = deviceRef.current
-        const deviceChanged = !previousDevice || !currentDevice || previousDevice.id !== currentDevice.id
-
         // Update device state
         setDevice(currentDevice)
 
@@ -177,21 +173,31 @@ export default function DeviceList({ onRefresh }: DeviceListProps) {
         const storedDeviceId = sessionStorage.getItem('connectedDeviceId')
 
         // Handle device connection/disconnection
-        if (currentDevice && deviceChanged) {
+        if (currentDevice) {
+          // Device is present
+          if (openDeviceIdRef.current === currentDevice.id) {
+            // Already tracking this device, no action needed
+            console.log('[DeviceList] Device already tracked:', currentDevice.id)
+            return
+          }
+
           // New device detected or device changed
           if (openDeviceIdRef.current && openDeviceIdRef.current !== currentDevice.id) {
             // Different device, disconnect old one first
+            console.log('[DeviceList] Different device detected, disconnecting old device')
             await disconnectDevice(openDeviceIdRef.current)
           }
 
-          // Check if already connected
+          // Check if already connected (from another tab or previous session)
           if (storedDeviceId === currentDevice.id) {
             // Device is already connected from previous session, just update local state
             console.log('[DeviceList] Device already connected from previous session:', currentDevice.id)
             setIsConnected(true)
             openDeviceIdRef.current = currentDevice.id
+            // Don't actually call openDevice API since it's already open
           } else if (!openDeviceIdRef.current) {
             // Not connected yet, try to connect
+            console.log('[DeviceList] New device, attempting connection')
             // Small delay to ensure UI updates first
             setTimeout(() => connectDevice(currentDevice), 100)
           }

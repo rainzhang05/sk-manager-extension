@@ -1,80 +1,38 @@
 import { DeviceList } from '../components'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { connectionManager, ConnectionState } from '../services/ConnectionManager'
 import '../styles/Dashboard.css'
 
 export default function Dashboard() {
-  const [extensionConnected, setExtensionConnected] = useState(false)
-  const [nativeHostConnected, setNativeHostConnected] = useState(false)
-  const [version, setVersion] = useState<string>('unknown')
-  const [checking, setChecking] = useState(true)
-
-  // Use ref to track if we're currently checking to avoid concurrent checks
-  const checkingRef = useRef(false)
-
-  const checkConnections = useCallback(async () => {
-    // Skip if already checking
-    if (checkingRef.current) {
-      return
-    }
-
-    checkingRef.current = true
-    setChecking(true)
-
-    // Check extension
-    if (window.chromeBridge) {
-      setExtensionConnected(true)
-
-      // Check native host
-      try {
-        const connected = await window.chromeBridge.isConnected()
-        setNativeHostConnected(connected)
-
-        if (connected) {
-          const ver = await window.chromeBridge.getVersion()
-          setVersion(ver)
-        }
-      } catch (err) {
-        console.error('Error checking native host connection:', err)
-        setNativeHostConnected(false)
-      }
-    } else {
-      setExtensionConnected(false)
-      setNativeHostConnected(false)
-    }
-
-    setChecking(false)
-    checkingRef.current = false
-  }, [])
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    connectionManager.getState()
+  )
 
   useEffect(() => {
-    // Wait for chromeBridge to be available
-    const waitForBridge = () => {
-      if (window.chromeBridge) {
-        checkConnections()
-      } else {
-        // Retry after a short delay
-        setTimeout(waitForBridge, 100)
-      }
-    }
+    console.log('[Dashboard] Mounting and subscribing to connection manager')
 
-    waitForBridge()
+    // Subscribe to connection state updates
+    const unsubscribe = connectionManager.subscribe((state) => {
+      console.log('[Dashboard] Received state update:', state)
+      setConnectionState(state)
+    })
 
-    // Also listen for the chromeBridgeReady event
-    const handleBridgeReady = () => {
-      checkConnections()
-    }
+    // Request an immediate refresh
+    connectionManager.refreshConnections()
 
-    window.addEventListener('chromeBridgeReady', handleBridgeReady)
-
-    // Set up interval to check connections every 5 seconds (increased from 3)
-    // This reduces unnecessary polling since DeviceList already polls every 2s
-    const interval = setInterval(checkConnections, 5000)
-
+    // Cleanup: unsubscribe when component unmounts
     return () => {
-      window.removeEventListener('chromeBridgeReady', handleBridgeReady)
-      clearInterval(interval)
+      console.log('[Dashboard] Unmounting but connection manager continues running')
+      unsubscribe()
     }
-  }, [checkConnections])
+  }, [])
+
+  const {
+    extensionConnected,
+    nativeHostConnected,
+    version,
+    checking,
+  } = connectionState
 
   return (
     <div className="page">
@@ -120,7 +78,7 @@ export default function Dashboard() {
         </div>
 
         <div className="devices-section">
-          <DeviceList onRefresh={checkConnections} />
+          <DeviceList onRefresh={() => connectionManager.refreshConnections()} />
         </div>
       </div>
     </div>
