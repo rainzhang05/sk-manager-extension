@@ -1,14 +1,14 @@
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
-use ciborium::Value as CborValue;
-use sha2::{Sha256, Digest};
-use hmac::{Hmac, Mac};
-use p256::{PublicKey, ecdh::EphemeralSecret};
-use p256::elliptic_curve::sec1::ToEncodedPoint;
-use rand::rngs::OsRng;
 use aes::Aes256;
-use cbc::{Encryptor, Decryptor};
-use cbc::cipher::{BlockEncryptMut, BlockDecryptMut, KeyIvInit, block_padding::NoPadding};
+use anyhow::{anyhow, Result};
+use cbc::cipher::{block_padding::NoPadding, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+use cbc::{Decryptor, Encryptor};
+use ciborium::Value as CborValue;
+use hmac::{Hmac, Mac};
+use p256::elliptic_curve::sec1::ToEncodedPoint;
+use p256::{ecdh::EphemeralSecret, PublicKey};
+use rand::rngs::OsRng;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::device::DeviceManager;
 use crate::transport;
@@ -316,8 +316,8 @@ pub fn get_info(device_manager: &DeviceManager, device_id: &str) -> Result<Fido2
     let response = ctap2_command(device_manager, device_id, &cid, CTAP2_GET_INFO, &[])?;
 
     // Parse CBOR response
-    let cbor: CborValue = ciborium::from_reader(&response[..])
-        .map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
+    let cbor: CborValue =
+        ciborium::from_reader(&response[..]).map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
 
     log::debug!("Parsed CBOR response: {:?}", cbor);
 
@@ -353,17 +353,20 @@ pub fn get_info(device_manager: &DeviceManager, device_id: &str) -> Result<Fido2
             CborValue::Integer(i) => {
                 let key_int: i128 = i.into();
                 match key_int {
-                    0x01 => { // versions
+                    0x01 => {
+                        // versions
                         if let CborValue::Array(arr) = value {
                             info.versions = arr.iter().map(cbor_to_string).collect();
                         }
                     }
-                    0x02 => { // extensions
+                    0x02 => {
+                        // extensions
                         if let CborValue::Array(arr) = value {
                             info.extensions = arr.iter().map(cbor_to_string).collect();
                         }
                     }
-                    0x03 => { // aaguid
+                    0x03 => {
+                        // aaguid
                         if let CborValue::Bytes(b) = value {
                             // Format as UUID
                             if b.len() == 16 {
@@ -375,15 +378,27 @@ pub fn get_info(device_manager: &DeviceManager, device_id: &str) -> Result<Fido2
                             }
                         }
                     }
-                    0x04 => { // options
+                    0x04 => {
+                        // options
                         if let CborValue::Map(opts) = value {
                             for (opt_key, opt_value) in opts {
                                 if let CborValue::Text(opt_name) = opt_key {
                                     match opt_name.as_str() {
-                                        "plat" => info.options.plat = cbor_to_bool(&opt_value).unwrap_or(false),
-                                        "rk" => info.options.rk = cbor_to_bool(&opt_value).unwrap_or(false),
-                                        "clientPin" => info.options.client_pin = cbor_to_bool(&opt_value),
-                                        "up" => info.options.up = cbor_to_bool(&opt_value).unwrap_or(false),
+                                        "plat" => {
+                                            info.options.plat =
+                                                cbor_to_bool(&opt_value).unwrap_or(false)
+                                        }
+                                        "rk" => {
+                                            info.options.rk =
+                                                cbor_to_bool(&opt_value).unwrap_or(false)
+                                        }
+                                        "clientPin" => {
+                                            info.options.client_pin = cbor_to_bool(&opt_value)
+                                        }
+                                        "up" => {
+                                            info.options.up =
+                                                cbor_to_bool(&opt_value).unwrap_or(false)
+                                        }
                                         "uv" => info.options.uv = cbor_to_bool(&opt_value),
                                         _ => {}
                                     }
@@ -391,54 +406,65 @@ pub fn get_info(device_manager: &DeviceManager, device_id: &str) -> Result<Fido2
                             }
                         }
                     }
-                    0x05 => { // maxMsgSize
+                    0x05 => {
+                        // maxMsgSize
                         info.max_msg_size = cbor_to_u32(&value);
                     }
-                    0x06 => { // pinProtocols
+                    0x06 => {
+                        // pinProtocols
                         if let CborValue::Array(arr) = value {
                             info.pin_protocols = arr.iter().filter_map(cbor_to_u8).collect();
                         }
                     }
-                    0x07 => { // maxCredentialCountInList
+                    0x07 => {
+                        // maxCredentialCountInList
                         info.max_credential_count_in_list = cbor_to_u32(&value);
                     }
-                    0x08 => { // maxCredentialIdLength
+                    0x08 => {
+                        // maxCredentialIdLength
                         info.max_credential_id_length = cbor_to_u32(&value);
                     }
-                    0x09 => { // transports
+                    0x09 => {
+                        // transports
                         if let CborValue::Array(arr) = value {
                             info.transports = arr.iter().map(cbor_to_string).collect();
                         }
                     }
-                    0x0A => { // algorithms - array of maps with {alg: -7, type: "public-key"}
+                    0x0A => {
+                        // algorithms - array of maps with {alg: -7, type: "public-key"}
                         if let CborValue::Array(arr) = value {
                             for alg_val in arr {
                                 if let CborValue::Map(alg_map) = alg_val {
                                     for (alg_key, alg_value) in alg_map {
                                         if let CborValue::Text(key_str) = alg_key {
                                             if key_str == "alg" {
-                                                if let Some(alg_num) = cbor_to_u8(&alg_value).or_else(|| {
-                                                    // Handle negative numbers (like -7 for ES256)
-                                                    match alg_value {
-                                                        CborValue::Integer(i) => {
-                                                            let val: i128 = i.into();
-                                                            match val {
-                                                                -7 => Some(0), // ES256
-                                                                -8 => Some(1), // EdDSA
-                                                                -257 => Some(2), // RS256
-                                                                _ => None,
+                                                if let Some(alg_num) = cbor_to_u8(&alg_value)
+                                                    .or_else(|| {
+                                                        // Handle negative numbers (like -7 for ES256)
+                                                        match alg_value {
+                                                            CborValue::Integer(i) => {
+                                                                let val: i128 = i.into();
+                                                                match val {
+                                                                    -7 => Some(0),   // ES256
+                                                                    -8 => Some(1),   // EdDSA
+                                                                    -257 => Some(2), // RS256
+                                                                    _ => None,
+                                                                }
                                                             }
+                                                            _ => None,
                                                         }
-                                                        _ => None,
-                                                    }
-                                                }) {
+                                                    })
+                                                {
                                                     let alg_name = match alg_num {
                                                         0 => "ES256",
                                                         1 => "EdDSA",
                                                         2 => "RS256",
                                                         _ => "Unknown",
                                                     };
-                                                    if !info.algorithms.contains(&alg_name.to_string()) {
+                                                    if !info
+                                                        .algorithms
+                                                        .contains(&alg_name.to_string())
+                                                    {
                                                         info.algorithms.push(alg_name.to_string());
                                                     }
                                                 }
@@ -451,7 +477,10 @@ pub fn get_info(device_manager: &DeviceManager, device_id: &str) -> Result<Fido2
                                                         -257 => "RS256",
                                                         _ => continue,
                                                     };
-                                                    if !info.algorithms.contains(&alg_name.to_string()) {
+                                                    if !info
+                                                        .algorithms
+                                                        .contains(&alg_name.to_string())
+                                                    {
                                                         info.algorithms.push(alg_name.to_string());
                                                     }
                                                 }
@@ -462,10 +491,12 @@ pub fn get_info(device_manager: &DeviceManager, device_id: &str) -> Result<Fido2
                             }
                         }
                     }
-                    0x0E => { // maxAuthenticatorConfigLength
+                    0x0E => {
+                        // maxAuthenticatorConfigLength
                         info.max_authenticator_config_length = cbor_to_u32(&value);
                     }
-                    0x0F => { // defaultCredProtect
+                    0x0F => {
+                        // defaultCredProtect
                         info.default_cred_protect = cbor_to_u8(&value);
                     }
                     _ => {
@@ -502,8 +533,14 @@ pub fn get_pin_retries(device_manager: &DeviceManager, device_id: &str) -> Resul
     // Construct ClientPIN getRetries command
     // CBOR map: {0x01: pinProtocol, 0x02: subCommand}
     let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol = 1
-        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_RETRIES.into())), // subCommand = getPinRetries
+        (
+            CborValue::Integer(0x01.into()),
+            CborValue::Integer(1.into()),
+        ), // pinProtocol = 1
+        (
+            CborValue::Integer(0x02.into()),
+            CborValue::Integer(PIN_GET_RETRIES.into()),
+        ), // subCommand = getPinRetries
     ];
 
     let mut data = Vec::new();
@@ -513,8 +550,8 @@ pub fn get_pin_retries(device_manager: &DeviceManager, device_id: &str) -> Resul
     let response = ctap2_command(device_manager, device_id, &cid, CTAP2_CLIENT_PIN, &data)?;
 
     // Parse CBOR response
-    let cbor: CborValue = ciborium::from_reader(&response[..])
-        .map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
+    let cbor: CborValue =
+        ciborium::from_reader(&response[..]).map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
 
     let map = match cbor {
         CborValue::Map(m) => m,
@@ -528,10 +565,12 @@ pub fn get_pin_retries(device_manager: &DeviceManager, device_id: &str) -> Resul
         if let CborValue::Integer(i) = key {
             let key_int: i128 = i.into();
             match key_int {
-                0x03 => { // retries
+                0x03 => {
+                    // retries
                     retries = cbor_to_u8(&value).unwrap_or(8);
                 }
-                0x05 => { // powerCycleState
+                0x05 => {
+                    // powerCycleState
                     power_cycle_required = cbor_to_bool(&value).unwrap_or(false);
                 }
                 _ => {}
@@ -552,8 +591,14 @@ fn get_key_agreement(
     cid: &[u8; 4],
 ) -> Result<Vec<u8>> {
     let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol = 1
-        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_KEY_AGREEMENT.into())),
+        (
+            CborValue::Integer(0x01.into()),
+            CborValue::Integer(1.into()),
+        ), // pinProtocol = 1
+        (
+            CborValue::Integer(0x02.into()),
+            CborValue::Integer(PIN_GET_KEY_AGREEMENT.into()),
+        ),
     ];
 
     let mut data = Vec::new();
@@ -562,8 +607,8 @@ fn get_key_agreement(
 
     let response = ctap2_command(device_manager, device_id, cid, CTAP2_CLIENT_PIN, &data)?;
 
-    let cbor: CborValue = ciborium::from_reader(&response[..])
-        .map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
+    let cbor: CborValue =
+        ciborium::from_reader(&response[..]).map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
 
     let map = match cbor {
         CborValue::Map(m) => m,
@@ -574,7 +619,8 @@ fn get_key_agreement(
     for (key, value) in map {
         if let CborValue::Integer(i) = key {
             let key_int: i128 = i.into();
-            if key_int == 0x01 { // keyAgreement
+            if key_int == 0x01 {
+                // keyAgreement
                 if let CborValue::Map(cose_key) = value {
                     // Extract x and y coordinates from COSE_Key
                     let mut x_coord: Option<Vec<u8>> = None;
@@ -584,12 +630,14 @@ fn get_key_agreement(
                         if let CborValue::Integer(cose_key_int) = cose_key {
                             let key_num: i128 = cose_key_int.into();
                             match key_num {
-                                -2 => { // x coordinate
+                                -2 => {
+                                    // x coordinate
                                     if let CborValue::Bytes(b) = cose_value {
                                         x_coord = Some(b);
                                     }
                                 }
-                                -3 => { // y coordinate
+                                -3 => {
+                                    // y coordinate
                                     if let CborValue::Bytes(b) = cose_value {
                                         y_coord = Some(b);
                                     }
@@ -655,7 +703,8 @@ fn encrypt_pin(pin: &str, shared_secret: &[u8]) -> Result<Vec<u8>> {
     let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
 
     // The data is already 64 bytes which is a multiple of 16, so no padding needed
-    let ciphertext = cipher.encrypt_padded_vec_mut::<NoPadding>(&pin_bytes)
+    let ciphertext = cipher
+        .encrypt_padded_vec_mut::<NoPadding>(&pin_bytes)
         .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
 
     Ok(ciphertext)
@@ -665,8 +714,8 @@ fn encrypt_pin(pin: &str, shared_secret: &[u8]) -> Result<Vec<u8>> {
 fn compute_pin_auth(key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     type HmacSha256 = Hmac<Sha256>;
 
-    let mut mac = HmacSha256::new_from_slice(key)
-        .map_err(|e| anyhow!("HMAC creation failed: {}", e))?;
+    let mut mac =
+        HmacSha256::new_from_slice(key).map_err(|e| anyhow!("HMAC creation failed: {}", e))?;
     mac.update(data);
     let result = mac.finalize();
 
@@ -703,18 +752,39 @@ pub fn set_pin(device_manager: &DeviceManager, device_id: &str, new_pin: &str) -
     // Step 5: Build COSE_Key for platform public key
     let cose_key = vec![
         (CborValue::Integer(1.into()), CborValue::Integer(2.into())), // kty: EC2
-        (CborValue::Integer(3.into()), CborValue::Integer((-25).into())), // alg: ECDH-ES+HKDF-256
-        (CborValue::Integer((-1).into()), CborValue::Integer(1.into())), // crv: P-256
-        (CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec())), // x
-        (CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec())), // y
+        (
+            CborValue::Integer(3.into()),
+            CborValue::Integer((-25).into()),
+        ), // alg: ECDH-ES+HKDF-256
+        (
+            CborValue::Integer((-1).into()),
+            CborValue::Integer(1.into()),
+        ), // crv: P-256
+        (
+            CborValue::Integer((-2).into()),
+            CborValue::Bytes(platform_public_key[1..33].to_vec()),
+        ), // x
+        (
+            CborValue::Integer((-3).into()),
+            CborValue::Bytes(platform_public_key[33..65].to_vec()),
+        ), // y
     ];
 
     // Step 6: Build command
     let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol
-        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_SET_PIN.into())), // subCommand
+        (
+            CborValue::Integer(0x01.into()),
+            CborValue::Integer(1.into()),
+        ), // pinProtocol
+        (
+            CborValue::Integer(0x02.into()),
+            CborValue::Integer(PIN_SET_PIN.into()),
+        ), // subCommand
         (CborValue::Integer(0x03.into()), CborValue::Map(cose_key)), // keyAgreement
-        (CborValue::Integer(0x05.into()), CborValue::Bytes(encrypted_pin)), // newPinEnc
+        (
+            CborValue::Integer(0x05.into()),
+            CborValue::Bytes(encrypted_pin),
+        ), // newPinEnc
         (CborValue::Integer(0x06.into()), CborValue::Bytes(pin_auth)), // pinAuth
     ];
 
@@ -769,7 +839,8 @@ pub fn change_pin(
         let key = &shared_secret[0..32];
         let iv = [0u8; 16];
         let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
-        cipher.encrypt_padded_vec_mut::<NoPadding>(&padded)
+        cipher
+            .encrypt_padded_vec_mut::<NoPadding>(&padded)
             .map_err(|e| anyhow!("Encryption failed: {:?}", e))?
     };
 
@@ -781,19 +852,43 @@ pub fn change_pin(
     // Step 5: Build COSE_Key for platform public key
     let cose_key = vec![
         (CborValue::Integer(1.into()), CborValue::Integer(2.into())), // kty: EC2
-        (CborValue::Integer(3.into()), CborValue::Integer((-25).into())), // alg: ECDH-ES+HKDF-256
-        (CborValue::Integer((-1).into()), CborValue::Integer(1.into())), // crv: P-256
-        (CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec())), // x
-        (CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec())), // y
+        (
+            CborValue::Integer(3.into()),
+            CborValue::Integer((-25).into()),
+        ), // alg: ECDH-ES+HKDF-256
+        (
+            CborValue::Integer((-1).into()),
+            CborValue::Integer(1.into()),
+        ), // crv: P-256
+        (
+            CborValue::Integer((-2).into()),
+            CborValue::Bytes(platform_public_key[1..33].to_vec()),
+        ), // x
+        (
+            CborValue::Integer((-3).into()),
+            CborValue::Bytes(platform_public_key[33..65].to_vec()),
+        ), // y
     ];
 
     // Step 6: Build command
     let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol
-        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_CHANGE_PIN.into())), // subCommand
+        (
+            CborValue::Integer(0x01.into()),
+            CborValue::Integer(1.into()),
+        ), // pinProtocol
+        (
+            CborValue::Integer(0x02.into()),
+            CborValue::Integer(PIN_CHANGE_PIN.into()),
+        ), // subCommand
         (CborValue::Integer(0x03.into()), CborValue::Map(cose_key)), // keyAgreement
-        (CborValue::Integer(0x04.into()), CborValue::Bytes(encrypted_current_pin_hash)), // pinHashEnc
-        (CborValue::Integer(0x05.into()), CborValue::Bytes(encrypted_new_pin)), // newPinEnc
+        (
+            CborValue::Integer(0x04.into()),
+            CborValue::Bytes(encrypted_current_pin_hash),
+        ), // pinHashEnc
+        (
+            CborValue::Integer(0x05.into()),
+            CborValue::Bytes(encrypted_new_pin),
+        ), // newPinEnc
         (CborValue::Integer(0x06.into()), CborValue::Bytes(pin_auth)), // pinAuth
     ];
 
@@ -832,24 +927,46 @@ fn get_pin_token(
     let key = &shared_secret[0..32];
     let iv = [0u8; 16];
     let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
-    let encrypted_pin_hash = cipher.encrypt_padded_vec_mut::<NoPadding>(&padded)
+    let encrypted_pin_hash = cipher
+        .encrypt_padded_vec_mut::<NoPadding>(&padded)
         .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
 
     // Step 5: Build COSE_Key
     let cose_key = vec![
         (CborValue::Integer(1.into()), CborValue::Integer(2.into())),
-        (CborValue::Integer(3.into()), CborValue::Integer((-25).into())),
-        (CborValue::Integer((-1).into()), CborValue::Integer(1.into())),
-        (CborValue::Integer((-2).into()), CborValue::Bytes(platform_public_key[1..33].to_vec())),
-        (CborValue::Integer((-3).into()), CborValue::Bytes(platform_public_key[33..65].to_vec())),
+        (
+            CborValue::Integer(3.into()),
+            CborValue::Integer((-25).into()),
+        ),
+        (
+            CborValue::Integer((-1).into()),
+            CborValue::Integer(1.into()),
+        ),
+        (
+            CborValue::Integer((-2).into()),
+            CborValue::Bytes(platform_public_key[1..33].to_vec()),
+        ),
+        (
+            CborValue::Integer((-3).into()),
+            CborValue::Bytes(platform_public_key[33..65].to_vec()),
+        ),
     ];
 
     // Step 6: Build command
     let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(1.into())), // pinProtocol
-        (CborValue::Integer(0x02.into()), CborValue::Integer(PIN_GET_PIN_TOKEN.into())), // subCommand
+        (
+            CborValue::Integer(0x01.into()),
+            CborValue::Integer(1.into()),
+        ), // pinProtocol
+        (
+            CborValue::Integer(0x02.into()),
+            CborValue::Integer(PIN_GET_PIN_TOKEN.into()),
+        ), // subCommand
         (CborValue::Integer(0x03.into()), CborValue::Map(cose_key)), // keyAgreement
-        (CborValue::Integer(0x04.into()), CborValue::Bytes(encrypted_pin_hash)), // pinHashEnc
+        (
+            CborValue::Integer(0x04.into()),
+            CborValue::Bytes(encrypted_pin_hash),
+        ), // pinHashEnc
     ];
 
     let mut data = Vec::new();
@@ -859,8 +976,8 @@ fn get_pin_token(
     let response = ctap2_command(device_manager, device_id, cid, CTAP2_CLIENT_PIN, &data)?;
 
     // Parse response to get encrypted PIN token
-    let cbor: CborValue = ciborium::from_reader(&response[..])
-        .map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
+    let cbor: CborValue =
+        ciborium::from_reader(&response[..]).map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
 
     let map = match cbor {
         CborValue::Map(m) => m,
@@ -870,13 +987,15 @@ fn get_pin_token(
     for (key, value) in map {
         if let CborValue::Integer(i) = key {
             let key_int: i128 = i.into();
-            if key_int == 0x02 { // pinToken
+            if key_int == 0x02 {
+                // pinToken
                 if let CborValue::Bytes(mut encrypted_token) = value {
                     // Decrypt PIN token
                     let key = &shared_secret[0..32];
                     let iv = [0u8; 16];
                     let cipher = Aes256CbcDec::new(key.into(), &iv.into());
-                    let decrypted = cipher.decrypt_padded_vec_mut::<NoPadding>(&mut encrypted_token)
+                    let decrypted = cipher
+                        .decrypt_padded_vec_mut::<NoPadding>(&mut encrypted_token)
                         .map_err(|e| anyhow!("Decryption failed: {:?}", e))?;
                     return Ok(decrypted.to_vec());
                 }
@@ -919,9 +1038,18 @@ pub fn list_credentials(
     let pin_auth = compute_pin_auth(&pin_token, &pin_auth_data)?;
 
     let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_RPS_BEGIN.into())), // subCommand
-        (CborValue::Integer(0x02.into()), CborValue::Bytes(Vec::new())), // subCommandParams (empty)
-        (CborValue::Integer(0x03.into()), CborValue::Integer(1.into())), // pinProtocol
+        (
+            CborValue::Integer(0x01.into()),
+            CborValue::Integer(CRED_MGMT_ENUMERATE_RPS_BEGIN.into()),
+        ), // subCommand
+        (
+            CborValue::Integer(0x02.into()),
+            CborValue::Bytes(Vec::new()),
+        ), // subCommandParams (empty)
+        (
+            CborValue::Integer(0x03.into()),
+            CborValue::Integer(1.into()),
+        ), // pinProtocol
         (CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth)), // pinAuth
     ];
 
@@ -930,7 +1058,13 @@ pub fn list_credentials(
         .map_err(|e| anyhow!("Failed to encode CBOR: {}", e))?;
 
     // Try to enumerate RPs
-    match ctap2_command(device_manager, device_id, &cid, CTAP2_CREDENTIAL_MANAGEMENT, &data) {
+    match ctap2_command(
+        device_manager,
+        device_id,
+        &cid,
+        CTAP2_CREDENTIAL_MANAGEMENT,
+        &data,
+    ) {
         Ok(response) => {
             // Parse RP info
             let cbor: CborValue = ciborium::from_reader(&response[..])
@@ -945,7 +1079,8 @@ pub fn list_credentials(
                     if let CborValue::Integer(i) = key {
                         let key_int: i128 = (*i).into();
                         match key_int {
-                            0x03 => { // rp
+                            0x03 => {
+                                // rp
                                 if let CborValue::Map(rp_info) = value {
                                     for (rp_key, rp_value) in rp_info {
                                         if let CborValue::Text(field) = rp_key {
@@ -998,9 +1133,10 @@ fn enumerate_credentials_for_rp(
     let mut credentials = Vec::new();
 
     // Build subCommandParams
-    let sub_params = vec![
-        (CborValue::Text("id".to_string()), CborValue::Text(rp_id.to_string())),
-    ];
+    let sub_params = vec![(
+        CborValue::Text("id".to_string()),
+        CborValue::Text(rp_id.to_string()),
+    )];
 
     // Encode subCommandParams
     let mut sub_params_bytes = Vec::new();
@@ -1012,9 +1148,18 @@ fn enumerate_credentials_for_rp(
 
     // Build command
     let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_CREDENTIALS_BEGIN.into())),
-        (CborValue::Integer(0x02.into()), CborValue::Bytes(sub_params_bytes)),
-        (CborValue::Integer(0x03.into()), CborValue::Integer(1.into())),
+        (
+            CborValue::Integer(0x01.into()),
+            CborValue::Integer(CRED_MGMT_ENUMERATE_CREDENTIALS_BEGIN.into()),
+        ),
+        (
+            CborValue::Integer(0x02.into()),
+            CborValue::Bytes(sub_params_bytes),
+        ),
+        (
+            CborValue::Integer(0x03.into()),
+            CborValue::Integer(1.into()),
+        ),
         (CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth)),
     ];
 
@@ -1022,7 +1167,13 @@ fn enumerate_credentials_for_rp(
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
         .map_err(|e| anyhow!("Failed to encode CBOR: {}", e))?;
 
-    match ctap2_command(device_manager, device_id, cid, CTAP2_CREDENTIAL_MANAGEMENT, &data) {
+    match ctap2_command(
+        device_manager,
+        device_id,
+        cid,
+        CTAP2_CREDENTIAL_MANAGEMENT,
+        &data,
+    ) {
         Ok(response) => {
             let cbor: CborValue = ciborium::from_reader(&response[..])
                 .map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
@@ -1035,7 +1186,8 @@ fn enumerate_credentials_for_rp(
                 let mut total_credentials = 1;
                 for (key, value) in &cred_map {
                     if let CborValue::Integer(i) = key {
-                        if i128::from(*i) == 0x05 { // totalCredentials
+                        if i128::from(*i) == 0x05 {
+                            // totalCredentials
                             total_credentials = cbor_to_u8(value).unwrap_or(1) as usize;
                         }
                     }
@@ -1043,7 +1195,8 @@ fn enumerate_credentials_for_rp(
 
                 // Enumerate remaining credentials
                 for _ in 1..total_credentials {
-                    match enumerate_next_credential(device_manager, device_id, cid, rp_id, rp_name) {
+                    match enumerate_next_credential(device_manager, device_id, cid, rp_id, rp_name)
+                    {
                         Ok(cred) => credentials.push(cred),
                         Err(e) => {
                             log::warn!("Failed to enumerate next credential: {}", e);
@@ -1069,18 +1222,25 @@ fn enumerate_next_credential(
     rp_id: &str,
     rp_name: &str,
 ) -> Result<Credential> {
-    let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_ENUMERATE_CREDENTIALS_NEXT.into())),
-    ];
+    let cmd_map = vec![(
+        CborValue::Integer(0x01.into()),
+        CborValue::Integer(CRED_MGMT_ENUMERATE_CREDENTIALS_NEXT.into()),
+    )];
 
     let mut data = Vec::new();
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
         .map_err(|e| anyhow!("Failed to encode CBOR: {}", e))?;
 
-    let response = ctap2_command(device_manager, device_id, cid, CTAP2_CREDENTIAL_MANAGEMENT, &data)?;
+    let response = ctap2_command(
+        device_manager,
+        device_id,
+        cid,
+        CTAP2_CREDENTIAL_MANAGEMENT,
+        &data,
+    )?;
 
-    let cbor: CborValue = ciborium::from_reader(&response[..])
-        .map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
+    let cbor: CborValue =
+        ciborium::from_reader(&response[..]).map_err(|e| anyhow!("Failed to parse CBOR: {}", e))?;
 
     let map = match cbor {
         CborValue::Map(m) => m,
@@ -1091,7 +1251,11 @@ fn enumerate_next_credential(
 }
 
 /// Parse credential from CBOR map
-fn parse_credential(map: &BTreeMap<CborValue, CborValue>, rp_id: &str, rp_name: &str) -> Result<Credential> {
+fn parse_credential(
+    map: &BTreeMap<CborValue, CborValue>,
+    rp_id: &str,
+    rp_name: &str,
+) -> Result<Credential> {
     let mut user_id = String::new();
     let mut user_name = String::new();
     let mut user_display_name = String::new();
@@ -1103,15 +1267,18 @@ fn parse_credential(map: &BTreeMap<CborValue, CborValue>, rp_id: &str, rp_name: 
         if let CborValue::Integer(i) = key {
             let key_int: i128 = (*i).into();
             match key_int {
-                0x06 => { // user
+                0x06 => {
+                    // user
                     if let CborValue::Map(user_info) = value {
                         for (user_key, user_value) in user_info {
                             if let CborValue::Text(field) = user_key {
                                 match field.as_str() {
-                                    "id" => user_id = hex::encode(match user_value {
-                                        CborValue::Bytes(b) => b,
-                                        _ => &[],
-                                    }),
+                                    "id" => {
+                                        user_id = hex::encode(match user_value {
+                                            CborValue::Bytes(b) => b,
+                                            _ => &[],
+                                        })
+                                    }
                                     "name" => user_name = cbor_to_string(user_value),
                                     "displayName" => user_display_name = cbor_to_string(user_value),
                                     _ => {}
@@ -1120,7 +1287,8 @@ fn parse_credential(map: &BTreeMap<CborValue, CborValue>, rp_id: &str, rp_name: 
                         }
                     }
                 }
-                0x07 => { // credentialID
+                0x07 => {
+                    // credentialID
                     if let CborValue::Map(cred_id_info) = value {
                         for (cred_key, cred_value) in cred_id_info {
                             if let CborValue::Text(field) = cred_key {
@@ -1134,11 +1302,13 @@ fn parse_credential(map: &BTreeMap<CborValue, CborValue>, rp_id: &str, rp_name: 
                         }
                     }
                 }
-                0x08 => { // publicKey
+                0x08 => {
+                    // publicKey
                     // COSE_Key format - could be parsed further
                     public_key = Some(format!("{:?}", value));
                 }
-                0x0A => { // credProtect
+                0x0A => {
+                    // credProtect
                     cred_protect = cbor_to_u8(value);
                 }
                 _ => {}
@@ -1175,18 +1345,25 @@ pub fn delete_credential(
     let pin_token = get_pin_token(device_manager, device_id, &cid, pin)?;
 
     // Decode credential ID from hex
-    let cred_id_bytes = hex::decode(credential_id)
-        .map_err(|e| anyhow!("Invalid credential ID: {}", e))?;
+    let cred_id_bytes =
+        hex::decode(credential_id).map_err(|e| anyhow!("Invalid credential ID: {}", e))?;
 
     // Build subCommandParams
     let cred_descriptor = vec![
-        (CborValue::Text("id".to_string()), CborValue::Bytes(cred_id_bytes)),
-        (CborValue::Text("type".to_string()), CborValue::Text("public-key".to_string())),
+        (
+            CborValue::Text("id".to_string()),
+            CborValue::Bytes(cred_id_bytes),
+        ),
+        (
+            CborValue::Text("type".to_string()),
+            CborValue::Text("public-key".to_string()),
+        ),
     ];
 
-    let sub_params = vec![
-        (CborValue::Text("credentialDescriptor".to_string()), CborValue::Map(cred_descriptor)),
-    ];
+    let sub_params = vec![(
+        CborValue::Text("credentialDescriptor".to_string()),
+        CborValue::Map(cred_descriptor),
+    )];
 
     let mut sub_params_bytes = Vec::new();
     ciborium::into_writer(&CborValue::Map(sub_params), &mut sub_params_bytes)
@@ -1197,9 +1374,18 @@ pub fn delete_credential(
 
     // Build command
     let cmd_map = vec![
-        (CborValue::Integer(0x01.into()), CborValue::Integer(CRED_MGMT_DELETE_CREDENTIAL.into())),
-        (CborValue::Integer(0x02.into()), CborValue::Bytes(sub_params_bytes)),
-        (CborValue::Integer(0x03.into()), CborValue::Integer(1.into())),
+        (
+            CborValue::Integer(0x01.into()),
+            CborValue::Integer(CRED_MGMT_DELETE_CREDENTIAL.into()),
+        ),
+        (
+            CborValue::Integer(0x02.into()),
+            CborValue::Bytes(sub_params_bytes),
+        ),
+        (
+            CborValue::Integer(0x03.into()),
+            CborValue::Integer(1.into()),
+        ),
         (CborValue::Integer(0x04.into()), CborValue::Bytes(pin_auth)),
     ];
 
@@ -1207,7 +1393,13 @@ pub fn delete_credential(
     ciborium::into_writer(&CborValue::Map(cmd_map), &mut data)
         .map_err(|e| anyhow!("Failed to encode CBOR: {}", e))?;
 
-    ctap2_command(device_manager, device_id, &cid, CTAP2_CREDENTIAL_MANAGEMENT, &data)?;
+    ctap2_command(
+        device_manager,
+        device_id,
+        &cid,
+        CTAP2_CREDENTIAL_MANAGEMENT,
+        &data,
+    )?;
 
     log::info!("Credential deleted successfully");
     Ok(())
