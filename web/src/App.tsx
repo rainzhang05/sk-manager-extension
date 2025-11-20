@@ -1,16 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Dashboard, FIDO2, Protocols, DebugConsole } from './pages'
+import { Dashboard, FIDO2, PIV, Protocols, DebugConsole } from './pages'
 import DeviceList from './components/DeviceList'
 import { connectionManager } from './services/ConnectionManager'
 import './styles/App.css'
-
-// Placeholder pages - will be implemented in later phases
-const PIVManager = () => (
-  <div className="page">
-    <h1>PIV Manager</h1>
-    <p>Certificate and key management</p>
-  </div>
-)
 
 const OTPManager = () => (
   <div className="page">
@@ -37,7 +29,7 @@ function App() {
       case 'fido2':
         return <FIDO2 />
       case 'piv':
-        return <PIVManager />
+        return <PIV />
       case 'otp':
         return <OTPManager />
       case 'protocols':

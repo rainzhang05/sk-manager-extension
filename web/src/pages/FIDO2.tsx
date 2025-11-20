@@ -594,6 +594,67 @@ export default function FIDO2() {
         )}
       </div>
 
+      {/* Test Commands */}
+      <div className="card">
+        <h2>Test Commands</h2>
+        <p>Test CTAP2 MakeCredential and GetAssertion commands</p>
+        <div className="button-group">
+          <button 
+            onClick={async () => {
+              if (!connectedDevice) return
+              setLoading(true)
+              setError(null)
+              setSuccessMessage(null)
+              try {
+                const response = await window.chromeBridge!.send('fido2MakeCredential', {
+                  deviceId: connectedDevice,
+                  rpId: 'example.com',
+                  userId: '01020304',
+                  userName: 'testuser'
+                })
+                console.log('[FIDO2] MakeCredential response:', response)
+                setSuccessMessage('MakeCredential command sent successfully')
+              } catch (err: any) {
+                console.error('[FIDO2] MakeCredential error:', err)
+                setError(err.message || 'MakeCredential command failed')
+              } finally {
+                setLoading(false)
+              }
+            }}
+            disabled={loading}
+            className="btn btn-primary"
+          >
+            {loading ? 'Sending...' : 'Test MakeCredential'}
+          </button>
+          <button 
+            onClick={async () => {
+              if (!connectedDevice) return
+              setLoading(true)
+              setError(null)
+              setSuccessMessage(null)
+              try {
+                const response = await window.chromeBridge!.send('fido2GetAssertion', {
+                  deviceId: connectedDevice,
+                  rpId: 'example.com',
+                  credentialId: '0102030405060708'
+                })
+                console.log('[FIDO2] GetAssertion response:', response)
+                setSuccessMessage('GetAssertion command sent successfully')
+              } catch (err: any) {
+                console.error('[FIDO2] GetAssertion error:', err)
+                setError(err.message || 'GetAssertion command failed')
+              } finally {
+                setLoading(false)
+              }
+            }}
+            disabled={loading}
+            className="btn btn-primary"
+          >
+            {loading ? 'Sending...' : 'Test GetAssertion'}
+          </button>
+        </div>
+      </div>
+
       {/* Device Reset */}
       <div className="card danger-zone">
         <h2>Danger Zone</h2>

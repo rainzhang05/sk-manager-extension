@@ -3,6 +3,7 @@ use std::io::{self, Read, Write};
 
 mod device;
 mod fido2;
+mod piv;
 mod protocol;
 mod transport;
 
@@ -615,6 +616,69 @@ fn handle_fido2_reset_device(
     }
 }
 
+/// Handle a pivGetData command
+fn handle_piv_get_data(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling pivGetData command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    match piv::get_piv_data(device_manager, device_id) {
+        Ok(result) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "info": result.info,
+                "activityLog": result.activity_log
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "PIV_GET_DATA_FAILED",
+            &format!("Failed to get PIV data: {}", e),
+        ),
+    }
+}
+
+/// Handle a pivSelect command
+fn handle_piv_select(
+    id: u32,
+    params: &serde_json::Value,
+    device_manager: &device::DeviceManager,
+) -> Response {
+    log::debug!("Handling pivSelect command");
+
+    let device_id = match params.get("deviceId").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => {
+            return Response::error(id, "INVALID_PARAMS", "Missing deviceId parameter");
+        }
+    };
+
+    match piv::select_piv(device_manager, device_id) {
+        Ok(selected) => Response::success(
+            id,
+            serde_json::json!({
+                "success": true,
+                "selected": selected
+            }),
+        ),
+        Err(e) => Response::error(
+            id,
+            "PIV_SELECT_FAILED",
+            &format!("Failed to select PIV application: {}", e),
+        ),
+    }
+}
+
 /// Process a single request
 fn process_request(request: Request, device_manager: &device::DeviceManager) -> Response {
     log::info!(
@@ -648,6 +712,8 @@ fn process_request(request: Request, device_manager: &device::DeviceManager) -> 
         "fido2ResetDevice" => {
             handle_fido2_reset_device(request.id, &request.params, device_manager)
         }
+        "pivGetData" => handle_piv_get_data(request.id, &request.params, device_manager),
+        "pivSelect" => handle_piv_select(request.id, &request.params, device_manager),
         _ => Response::error(
             request.id,
             "UNKNOWN_COMMAND",
