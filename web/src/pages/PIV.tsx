@@ -118,7 +118,17 @@ export default function PIV() {
             setLoading(false)
             return
           }
+        } else {
+          // Device not found in list
+          setError('Device not found. Please reconnect your device.')
+          setLoading(false)
+          return
         }
+      } else {
+        // Failed to get device list
+        setError('Failed to get device list. Please try reconnecting your device.')
+        setLoading(false)
+        return
       }
 
       console.log('[PIV] Sending pivGetData command...')
@@ -127,13 +137,20 @@ export default function PIV() {
       console.log('Device ID:', deviceId)
       console.time('[PIV] pivGetData execution time')
 
-      const response = await window.chromeBridge.send('pivGetData', { deviceId })
+      const response = await Promise.race([
+        window.chromeBridge!.send('pivGetData', { deviceId }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('PIV command timeout - device not responding')), 10000)
+        )
+      ]) as { status: string; result?: unknown; error?: { code: string; message: string } };
 
       console.timeEnd('[PIV] pivGetData execution time')
       console.log('[PIV] pivGetData response:', response)
 
-      if (response.status === 'ok' && response.result) {
-        const result = response.result as {
+      const typedResponse = response as { status: string; result?: unknown; error?: { code: string; message: string } };
+      
+      if (typedResponse.status === 'ok' && typedResponse.result) {
+        const result = typedResponse.result as {
           info: PivInfo
           activityLog: ApduLog[]
         }
@@ -161,7 +178,7 @@ export default function PIV() {
 
         setSuccessMessage(`PIV data loaded successfully. ${result.activityLog?.length || 0} APDU commands executed.`)
       } else {
-        const errorMsg = response.error?.message || 'Failed to get PIV data'
+        const errorMsg = typedResponse.error?.message || 'Failed to get PIV data'
         console.error('[PIV] Failed to get PIV data:', errorMsg)
 
         // Provide helpful error messages
@@ -169,6 +186,8 @@ export default function PIV() {
           setError('Device did not respond to PIV commands. This device may not support PIV, or the card may not be present in the reader.')
         } else if (errorMsg.includes('APDU error')) {
           setError('The device returned an APDU error. The PIV application may not be available or the card needs to be reset.')
+        } else if (errorMsg.includes('DEVICE_TYPE_MISMATCH')) {
+          setError('PIV operations require a CCID smart card device. The connected device is a HID device which is used for FIDO2. Please connect a smart card reader or a device with CCID interface for PIV operations.')
         } else {
           setError(errorMsg)
         }
@@ -180,8 +199,10 @@ export default function PIV() {
       console.error('[PIV] Exception in loadPivData:', errorMsg)
       if (errorMsg.includes('timeout')) {
         setError('Communication timeout. Please ensure the device is properly connected and supports PIV.')
+      } else if (errorMsg.includes('not found')) {
+        setError('Device not found. Please reconnect your device.')
       } else {
-        setError(errorMsg)
+        setError(`Error loading PIV data: ${errorMsg}`)
       }
     } finally {
       setLoading(false)

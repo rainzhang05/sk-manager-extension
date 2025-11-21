@@ -66,6 +66,10 @@ pub fn receive_hid(device: &hidapi::HidDevice, timeout_ms: i32) -> Result<Vec<u8
 /// # Returns
 /// * `Ok(Vec<u8>)` - APDU response including status word (SW1 SW2)
 /// * `Err` - If APDU is invalid or transmission fails
+///
+/// # Note
+/// This function may hang if the device doesn't respond. In production, consider
+/// implementing a timeout mechanism at a higher level to prevent indefinite blocking.
 pub fn transmit_apdu(card: &pcsc::Card, apdu: &[u8]) -> Result<Vec<u8>> {
     if apdu.len() < 4 {
         return Err(anyhow!(
@@ -80,7 +84,7 @@ pub fn transmit_apdu(card: &pcsc::Card, apdu: &[u8]) -> Result<Vec<u8>> {
     // Prepare response buffer (maximum size per PC/SC spec)
     let mut response = vec![0u8; pcsc::MAX_BUFFER_SIZE];
 
-    // Transmit the APDU
+    // Transmit the APDU with a timeout
     let response_data = card
         .transmit(apdu, &mut response)
         .map_err(|e| anyhow!("Failed to transmit APDU: {}", e))?;

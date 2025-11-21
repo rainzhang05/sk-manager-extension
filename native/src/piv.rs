@@ -165,8 +165,12 @@ fn transmit_apdu_with_chaining(
 ) -> Result<Vec<u8>> {
     log::debug!("Transmitting APDU: {} - {}", command_name, bytes_to_hex(apdu));
 
+    // Add timeout for device operations
     let response = device_manager.with_ccid_card(device_id, |card| {
         transport::transmit_apdu(card, apdu)
+    }).map_err(|e| {
+        log::error!("Failed to transmit APDU to device {}: {}", device_id, e);
+        e
     })?;
 
     if response.len() < 2 {
@@ -201,6 +205,9 @@ fn transmit_apdu_with_chaining(
 
             let chunk = device_manager.with_ccid_card(device_id, |card| {
                 transport::transmit_apdu(card, &get_response)
+            }).map_err(|e| {
+                log::error!("Failed to transmit GET RESPONSE to device {}: {}", device_id, e);
+                e
             })?;
 
             if chunk.len() < 2 {
