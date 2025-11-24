@@ -51,6 +51,17 @@ fn enumerate_hid_devices() -> Result<Vec<Device>> {
             continue;
         }
 
+        // Skip devices with invalid VID/PID (virtual or system devices)
+        if device_info.vendor_id() == 0 || device_info.product_id() == 0 {
+            log::debug!(
+                "Skipping device with invalid VID/PID: 0x{:04x}/0x{:04x} - {}",
+                device_info.vendor_id(),
+                device_info.product_id(),
+                device_info.path().to_string_lossy()
+            );
+            continue;
+        }
+
         device_counter += 1;
 
         let manufacturer = device_info.manufacturer_string().map(|s| s.to_string());
