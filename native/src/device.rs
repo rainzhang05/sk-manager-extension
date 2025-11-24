@@ -2,9 +2,6 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Feitian Technologies Vendor ID
-const FEITIAN_VENDOR_ID: u16 = 0x096e;
-
 /// Device type enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -26,7 +23,7 @@ pub struct Device {
     pub path: String,
 }
 
-/// Enumerate HID devices and filter by Feitian vendor ID
+/// Enumerate all HID devices
 fn enumerate_hid_devices() -> Result<Vec<Device>> {
     log::debug!("Enumerating HID devices...");
 
@@ -36,11 +33,6 @@ fn enumerate_hid_devices() -> Result<Vec<Device>> {
     let mut device_counter = 0;
 
     for device_info in api.device_list() {
-        // Filter by Feitian vendor ID
-        if device_info.vendor_id() != FEITIAN_VENDOR_ID {
-            continue;
-        }
-
         // Get HID usage page and usage
         let usage_page = device_info.usage_page();
         let usage = device_info.usage();
@@ -95,11 +87,11 @@ fn enumerate_hid_devices() -> Result<Vec<Device>> {
         devices.push(device);
     }
 
-    log::debug!("Found {} HID devices with Feitian VID", devices.len());
+    log::debug!("Found {} HID devices", devices.len());
     Ok(devices)
 }
 
-/// Enumerate CCID readers and filter for Feitian devices
+/// Enumerate all CCID readers
 fn enumerate_ccid_devices() -> Result<Vec<Device>> {
     log::debug!("Enumerating CCID readers...");
 
@@ -134,85 +126,52 @@ fn enumerate_ccid_devices() -> Result<Vec<Device>> {
         let reader_str = reader_name.to_string_lossy();
         log::debug!("Checking reader: {}", reader_str);
 
-        // Check if this is a Feitian reader
-        // Common Feitian reader names contain "Feitian", "ePass", "BioPass", etc.
-        let is_feitian = reader_str.to_lowercase().contains("feitian")
-            || reader_str.to_lowercase().contains("epass")
-            || reader_str.to_lowercase().contains("biopass");
+        // Only add device if we can successfully connect to a card in the reader
+        match ctx.connect(reader_name, pcsc::ShareMode::Shared, pcsc::Protocols::ANY) {
+            Ok(card) => {
+                // Card is present and we can connect
+                device_counter += 1;
 
-        if !is_feitian {
-            log::debug!("Skipping non-Feitian reader: {}", reader_str);
-            continue;
+                // Try to get ATR (Answer To Reset) for device identification
+                let _status = card.status2_owned();
+                log::debug!("Card present in reader: {}", reader_str);
+
+                let id = format!("ccid_{}", device_counter);
+
+                let device = Device {
+                    id: id.clone(),
+                    vendor_id: 0,  // Unknown for CCID, would need ATR parsing
+                    product_id: 0, // Unknown for CCID, would need ATR parsing
+                    device_type: DeviceType::Ccid,
+                    manufacturer: None,
+                    product_name: Some(reader_str.to_string()),
+                    serial_number: None,
+                    path: reader_str.to_string(),
+                };
+
+                log::info!(
+                    "Found CCID device: {} - Reader: {}",
+                    device
+                        .product_name
+                        .as_ref()
+                        .unwrap_or(&"Unknown".to_string()),
+                    device.path
+                );
+
+                devices.push(device);
+            }
+            Err(e) => {
+                // No card present or cannot connect - skip this reader
+                log::debug!("Skipping reader {} (no card or connection failed: {})", reader_str, e);
+            }
         }
-
-        device_counter += 1;
-
-        // Try to connect to the card to get more info
-        let (manufacturer, product_name, serial_number) =
-            match ctx.connect(reader_name, pcsc::ShareMode::Shared, pcsc::Protocols::ANY) {
-                Ok(card) => {
-                    // Try to get ATR (Answer To Reset) for device identification
-                    match card.status2_owned() {
-                        Ok(_status) => {
-                            log::debug!("Card status retrieved for {}", reader_str);
-                            // We could parse ATR here for more detailed info
-                            // For now, we'll use the reader name as product name
-                            (
-                                Some("Feitian Technologies".to_string()),
-                                Some(reader_str.to_string()),
-                                None,
-                            )
-                        }
-                        Err(e) => {
-                            log::debug!("Could not get card status for {}: {}", reader_str, e);
-                            (
-                                Some("Feitian Technologies".to_string()),
-                                Some(reader_str.to_string()),
-                                None,
-                            )
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::debug!("Could not connect to card in {}: {}", reader_str, e);
-                    (
-                        Some("Feitian Technologies".to_string()),
-                        Some(reader_str.to_string()),
-                        None,
-                    )
-                }
-            };
-
-        let id = format!("ccid_{}", device_counter);
-
-        let device = Device {
-            id: id.clone(),
-            vendor_id: FEITIAN_VENDOR_ID, // Assume Feitian VID
-            product_id: 0,                // Unknown for CCID, would need ATR parsing
-            device_type: DeviceType::Ccid,
-            manufacturer,
-            product_name,
-            serial_number,
-            path: reader_str.to_string(),
-        };
-
-        log::info!(
-            "Found CCID device: {} - Reader: {}",
-            device
-                .product_name
-                .as_ref()
-                .unwrap_or(&"Unknown".to_string()),
-            device.path
-        );
-
-        devices.push(device);
     }
 
     log::debug!("Found {} CCID devices", devices.len());
     Ok(devices)
 }
 
-/// List all Feitian devices (both HID and CCID)
+/// List all devices (both HID and CCID)
 pub fn list_devices() -> Result<Vec<Device>> {
     log::info!("Starting device enumeration...");
 
@@ -252,7 +211,7 @@ pub fn list_devices() -> Result<Vec<Device>> {
     log::info!("Total devices found: {}", all_devices.len());
 
     if all_devices.is_empty() {
-        log::info!("No Feitian devices detected. Make sure your device is connected.");
+        log::info!("No devices detected. Make sure your device is connected.");
     }
 
     Ok(all_devices)
@@ -410,11 +369,11 @@ mod tests {
     fn test_device_serialization() {
         let device = Device {
             id: "test1".to_string(),
-            vendor_id: FEITIAN_VENDOR_ID,
+            vendor_id: 0x096e,
             product_id: 0x0852,
             device_type: DeviceType::Hid,
-            manufacturer: Some("Feitian Technologies".to_string()),
-            product_name: Some("ePass FIDO".to_string()),
+            manufacturer: Some("Test Manufacturer".to_string()),
+            product_name: Some("Test Device".to_string()),
             serial_number: Some("ABC123".to_string()),
             path: "/dev/hidraw0".to_string(),
         };
