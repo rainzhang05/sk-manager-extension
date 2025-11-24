@@ -62,6 +62,17 @@ fn enumerate_hid_devices() -> Result<Vec<Device>> {
             continue;
         }
 
+        // Skip Apple devices (VID 0x05AC) - these are system devices, not security keys
+        if device_info.vendor_id() == 0x05AC {
+            log::debug!(
+                "Skipping Apple device: 0x{:04x}/0x{:04x} - {}",
+                device_info.vendor_id(),
+                device_info.product_id(),
+                device_info.path().to_string_lossy()
+            );
+            continue;
+        }
+
         device_counter += 1;
 
         let manufacturer = device_info.manufacturer_string().map(|s| s.to_string());

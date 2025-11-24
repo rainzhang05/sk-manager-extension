@@ -631,38 +631,7 @@ fn handle_piv_get_data(
         }
     };
 
-    // Check if device is CCID type before proceeding
-    match device::list_devices() {
-        Ok(devices) => {
-            let device = devices.iter().find(|d| d.id == device_id);
-            match device {
-                Some(d) => {
-                    if d.device_type != device::DeviceType::Ccid {
-                        return Response::error(
-                            id,
-                            "DEVICE_TYPE_MISMATCH",
-                            "PIV operations require a CCID device. The specified device is not a CCID device."
-                        );
-                    }
-                }
-                None => {
-                    return Response::error(
-                        id,
-                        "DEVICE_NOT_FOUND",
-                        &format!("Device with ID {} not found", device_id)
-                    );
-                }
-            }
-        }
-        Err(e) => {
-            return Response::error(
-                id,
-                "DEVICE_ENUMERATION_FAILED",
-                &format!("Failed to enumerate devices: {}", e)
-            );
-        }
-    }
-
+    // Send command regardless of device type
     match piv::get_piv_data(device_manager, device_id) {
         Ok(result) => Response::success(
             id,

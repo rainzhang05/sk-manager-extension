@@ -114,7 +114,7 @@ export default function PIV() {
 
           // PIV requires CCID device
           if (deviceType !== 'Ccid') {
-            setError('PIV requires a CCID smart card device. The connected device is a HID device which is used for FIDO2. Please connect a smart card reader or a device with CCID interface for PIV operations.')
+            setError('Error sending command')
             setLoading(false)
             return
           }
